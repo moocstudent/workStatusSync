@@ -19,7 +19,7 @@ import { z } from "zod";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, set, update, get, onValue, onDisconnect, remove } from "firebase/database";
 
-const ROOM = process.env.WS_ROOM || "main";
+const ROOM = process.env.WS_ROOM || "lobby";
 const OWNER_UID = process.env.WS_OWNER_UID || ("a_solo_" + Math.random().toString(36).slice(2, 8));
 const OWNER_NAME = process.env.WS_OWNER_NAME || "AI";
 const AGENT_NAME = process.env.WS_AGENT_NAME || "Claude";

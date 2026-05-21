@@ -10,7 +10,7 @@ const transport = new StdioClientTransport({
   // 身份用环境变量传入（不传则用 server.js 的默认值）：
   //   WS_OWNER_UID  你在页面「复制我的ID」拿到的 id（不传=显示成独立的"仅 AI 在线"卡）
   //   WS_OWNER_NAME 主人显示名    WS_AGENT_NAME 这个 agent 的名字    WS_ROOM 房间名
-  env: { ...process.env, WS_ROOM: process.env.WS_ROOM || "main" },
+  env: { ...process.env, WS_ROOM: process.env.WS_ROOM || "lobby" },
 });
 
 const client = new Client({ name: "claude-code", version: "1.0.0" }, { capabilities: {} });

@@ -142,7 +142,6 @@
   <div class="conn-card">
     <h2><span data-i18n="setup_title">🔧 连接设置</span> <span id="setupState" style="font-weight:400;color:var(--muted);font-size:12px;"></span></h2>
     <div id="inviteeNote" class="hint" style="display:none;margin:6px 0 0;color:var(--amber);"></div>
-    <div id="guestNote" class="hint" style="display:none;margin:6px 0 0;color:var(--amber);"></div>
 
     <div class="conn-step" id="cfgStep" data-i18n="step1">① 粘贴你的 Firebase 配置（控制台里的 firebaseConfig）：</div>
     <textarea id="cfgIn" placeholder='const firebaseConfig = {
@@ -165,7 +164,7 @@
       <button class="btn" id="saveBtn" data-i18n="save_btn">保存并连接</button>
     </div>
 
-    <div class="conn-step" id="inviteStep" data-i18n="invite_step">把邀请链接发给别人，对方点开即可作为参与者加入：</div>
+    <div class="conn-step" id="inviteStep" data-i18n="step3">③ 把邀请链接发给对方（已含配置，对方点开自动连上同一房间）：</div>
     <input id="shareLink" class="link-in" readonly data-i18n-ph="share_ph" placeholder="保存连接后出现…" />
     <div class="btn-row">
       <button class="btn sec" id="copyShare" data-i18n="copy_share">复制邀请链接</button><span id="copyShareOk"></span>
@@ -183,8 +182,8 @@
     </details>
   </div>
 
-  <div class="grid" id="grid">
-    <div id="mePanel">
+  <div class="grid">
+    <div>
       <div class="section-title" data-i18n="sec_my">我的状态</div>
       <div class="me">
         <div class="row">
@@ -276,7 +275,7 @@ npm install --registry=https://registry.npmmirror.com</span>
       mcp_step1: "① 取得服务端代码并安装依赖（Node 18+）：",
       mcp_step2: "② 在本页点上方「🤖 复制我的ID（给AI用）」，拿到你的 ownerUid。",
       mcp_step3: "③ 在 Claude / 任意 MCP 客户端的配置里加入（把绝对路径和 ID 换成你的）：",
-      mcp_cfg: `{\n  "mcpServers": {\n    "worksync": {\n      "command": "node",\n      "args": ["/绝对路径/workStatusSync/mcp/server.js"],\n      "env": {\n        "WS_DATABASE_URL": "https://你的项目-default-rtdb.firebaseio.com",\n        "WS_API_KEY": "你的 apiKey",\n        "WS_ROOM": "lobby",\n        "WS_OWNER_UID": "粘贴你复制的ID",\n        "WS_OWNER_NAME": "你的名字",\n        "WS_AGENT_NAME": "Claude"\n      }\n    }\n  }\n}`,
+      mcp_cfg: `{\n  "mcpServers": {\n    "worksync": {\n      "command": "node",\n      "args": ["/绝对路径/workStatusSync/mcp/server.js"],\n      "env": {\n        "WS_DATABASE_URL": "https://你的项目-default-rtdb.firebaseio.com",\n        "WS_API_KEY": "你的 apiKey",\n        "WS_ROOM": "main",\n        "WS_OWNER_UID": "粘贴你复制的ID",\n        "WS_OWNER_NAME": "你的名字",\n        "WS_AGENT_NAME": "Claude"\n      }\n    }\n  }\n}`,
       mcp_step4: `④ 让 AI 调用 <code>worksync_join</code>，它就出现在你卡片下了。多开几个（改 <code>WS_AGENT_NAME</code> / <code>WS_AGENT_ID</code>）即「一人多 AI」。`,
       mcp_tools_summary: "🛠 可用工具 / 给 AI 的提示",
       mcp_tools_ol: `<li><code>worksync_join({status?, task?})</code> — 加入房间，作为芯片挂到主人(ownerUid)卡片下</li><li><code>worksync_set({status?, task?, accepting?})</code> — 更新状态 / 任务 / 是否接受提问</li><li><code>worksync_who()</code> — 列出房间里的人和所有 AI（按主人分组）</li><li><code>worksync_timeline({uid?, hours?})</code> — 读某人最近 N 小时的状态历史时间线</li><li><code>worksync_inbox()</code> / <code>worksync_answer({qid, answer})</code> — 看/回答别人向你提的问题</li><li><code>worksync_leave()</code> — 离开房间（删除自己的节点；进程退出也会自动删）</li>`,
@@ -307,10 +306,7 @@ npm install --registry=https://registry.npmmirror.com</span>
       conn_db_fail: "连接数据库失败：{0}\n\n多半是数据库规则不允许读写，请按设置里的步骤把规则设为允许，或用「测试模式」。",
       init_fail: "Firebase 初始化失败：{0}", setup_connected: "· 已连接房间「{0}」", setup_encrypted: " · 🔒已加密",
       invitee_note: "🔒 你通过邀请加入房间「{0}」——Firebase 配置由邀请人持有，本页不显示，你也不能再邀请他人。",
-      show_cfg: "🔧 显示配置", hide_cfg: "🙈 隐藏配置",
-      guest_note: "👀 游客模式：你正在查看，不会出现在列表里、也不能发言。想参与请向已加入的成员要邀请链接。",
-      guest_state: "· 游客（仅查看）", joined_state: "· 已加入", leave_btn: "退出（变回游客）",
-      invite_step: "把邀请链接发给别人，对方点开即可作为参与者加入：", empty_guest: "暂无在线成员（你以游客身份查看）"
+      show_cfg: "🔧 显示配置", hide_cfg: "🙈 隐藏配置"
     },
     en: {
       title: "WorkSync · cross-timezone status sync (Firebase Realtime DB)",
@@ -343,7 +339,7 @@ npm install --registry=https://registry.npmmirror.com</span>
       mcp_step1: "① Get the server code and install deps (Node 18+):",
       mcp_step2: '② Click "🤖 Copy my ID (for AI)" above to get your ownerUid.',
       mcp_step3: "③ Add to your Claude / any MCP client config (replace the path and ID with yours):",
-      mcp_cfg: `{\n  "mcpServers": {\n    "worksync": {\n      "command": "node",\n      "args": ["/absolute/path/workStatusSync/mcp/server.js"],\n      "env": {\n        "WS_DATABASE_URL": "https://your-project-default-rtdb.firebaseio.com",\n        "WS_API_KEY": "your apiKey",\n        "WS_ROOM": "lobby",\n        "WS_OWNER_UID": "paste your copied ID",\n        "WS_OWNER_NAME": "your name",\n        "WS_AGENT_NAME": "Claude"\n      }\n    }\n  }\n}`,
+      mcp_cfg: `{\n  "mcpServers": {\n    "worksync": {\n      "command": "node",\n      "args": ["/absolute/path/workStatusSync/mcp/server.js"],\n      "env": {\n        "WS_DATABASE_URL": "https://your-project-default-rtdb.firebaseio.com",\n        "WS_API_KEY": "your apiKey",\n        "WS_ROOM": "main",\n        "WS_OWNER_UID": "paste your copied ID",\n        "WS_OWNER_NAME": "your name",\n        "WS_AGENT_NAME": "Claude"\n      }\n    }\n  }\n}`,
       mcp_step4: `④ Have the AI call <code>worksync_join</code> and it shows up under your card. Run several (change <code>WS_AGENT_NAME</code> / <code>WS_AGENT_ID</code>) for "one person, many AIs".`,
       mcp_tools_summary: "🛠 Tools / tips for the AI",
       mcp_tools_ol: `<li><code>worksync_join({status?, task?})</code> — join the room, appear as a chip under the owner (ownerUid)</li><li><code>worksync_set({status?, task?, accepting?})</code> — update status / task / whether you accept questions</li><li><code>worksync_who()</code> — list the people and all AIs in the room (grouped by owner)</li><li><code>worksync_timeline({uid?, hours?})</code> — read someone's status history for the last N hours</li><li><code>worksync_inbox()</code> / <code>worksync_answer({qid, answer})</code> — view / answer questions sent to you</li><li><code>worksync_leave()</code> — leave the room (removes your node; also auto-removed on exit)</li>`,
@@ -374,10 +370,7 @@ npm install --registry=https://registry.npmmirror.com</span>
       conn_db_fail: "Failed to connect to the database: {0}\n\nMost likely the database rules don't allow read/write; set the rules to allow per the setup steps, or use \"test mode\".",
       init_fail: "Firebase init failed: {0}", setup_connected: '· Connected to room "{0}"', setup_encrypted: " · 🔒 encrypted",
       invitee_note: '🔒 You joined room "{0}" via invite — the Firebase config is held by the inviter and not shown here; you can\'t invite others.',
-      show_cfg: "🔧 Show config", hide_cfg: "🙈 Hide config",
-      guest_note: "👀 Guest mode: you're viewing only — you won't appear in the list and can't post. To join, ask a member for an invite link.",
-      guest_state: "· Guest (view only)", joined_state: "· Joined", leave_btn: "Leave (back to guest)",
-      invite_step: "Send this invite link; opening it joins as a participant:", empty_guest: "No one online yet (you're viewing as a guest)"
+      show_cfg: "🔧 Show config", hide_cfg: "🙈 Hide config"
     },
     ja: {
       title: "WorkSync · タイムゾーンを越えた状態同期（Firebase Realtime DB）",
@@ -410,7 +403,7 @@ npm install --registry=https://registry.npmmirror.com</span>
       mcp_step1: "① サーバーコードを取得して依存をインストール（Node 18+）：",
       mcp_step2: "② 上の「🤖 私のIDをコピー（AI用）」を押して ownerUid を取得。",
       mcp_step3: "③ Claude／任意の MCP クライアント設定に追加（パスとIDをあなたのものに）：",
-      mcp_cfg: `{\n  "mcpServers": {\n    "worksync": {\n      "command": "node",\n      "args": ["/絶対パス/workStatusSync/mcp/server.js"],\n      "env": {\n        "WS_DATABASE_URL": "https://あなたのプロジェクト-default-rtdb.firebaseio.com",\n        "WS_API_KEY": "あなたの apiKey",\n        "WS_ROOM": "lobby",\n        "WS_OWNER_UID": "コピーしたIDを貼り付け",\n        "WS_OWNER_NAME": "あなたの名前",\n        "WS_AGENT_NAME": "Claude"\n      }\n    }\n  }\n}`,
+      mcp_cfg: `{\n  "mcpServers": {\n    "worksync": {\n      "command": "node",\n      "args": ["/絶対パス/workStatusSync/mcp/server.js"],\n      "env": {\n        "WS_DATABASE_URL": "https://あなたのプロジェクト-default-rtdb.firebaseio.com",\n        "WS_API_KEY": "あなたの apiKey",\n        "WS_ROOM": "main",\n        "WS_OWNER_UID": "コピーしたIDを貼り付け",\n        "WS_OWNER_NAME": "あなたの名前",\n        "WS_AGENT_NAME": "Claude"\n      }\n    }\n  }\n}`,
       mcp_step4: `④ AI に <code>worksync_join</code> を呼ばせれば、あなたのカードの下に出ます。複数起動（<code>WS_AGENT_NAME</code> / <code>WS_AGENT_ID</code> を変える）で「1人＝複数AI」。`,
       mcp_tools_summary: "🛠 使えるツール／AIへのヒント",
       mcp_tools_ol: `<li><code>worksync_join({status?, task?})</code> — ルームに参加し、持ち主(ownerUid)のカード下にチップ表示</li><li><code>worksync_set({status?, task?, accepting?})</code> — 状態／タスク／質問受付の更新</li><li><code>worksync_who()</code> — ルーム内の人と全AIを一覧（持ち主ごと）</li><li><code>worksync_timeline({uid?, hours?})</code> — 直近N時間の状態履歴を読む</li><li><code>worksync_inbox()</code> / <code>worksync_answer({qid, answer})</code> — 自分宛の質問を見る／答える</li><li><code>worksync_leave()</code> — ルームを離脱（自分のノード削除。終了時も自動削除）</li>`,
@@ -441,10 +434,7 @@ npm install --registry=https://registry.npmmirror.com</span>
       conn_db_fail: "データベース接続に失敗：{0}\n\n多くの場合ルールが読み書きを許可していません。設定手順に従って許可するか「テストモード」を使ってください。",
       init_fail: "Firebase 初期化に失敗：{0}", setup_connected: "· ルーム「{0}」に接続", setup_encrypted: " · 🔒 暗号化",
       invitee_note: "🔒 招待でルーム「{0}」に参加 —— Firebase 設定は招待者が保持し、ここには表示されません。他の人を招待することもできません。",
-      show_cfg: "🔧 設定を表示", hide_cfg: "🙈 設定を隠す",
-      guest_note: "👀 ゲストモード：閲覧のみ。一覧に表示されず、投稿もできません。参加するにはメンバーから招待リンクをもらってください。",
-      guest_state: "· ゲスト（閲覧のみ）", joined_state: "· 参加中", leave_btn: "退出（ゲストに戻る）",
-      invite_step: "招待リンクを送る。開けば参加者として加わります：", empty_guest: "オンラインのメンバーはまだいません（ゲストとして閲覧中）"
+      show_cfg: "🔧 設定を表示", hide_cfg: "🙈 設定を隠す"
     }
   };
   function detectLang() {
@@ -478,29 +468,12 @@ npm install --registry=https://registry.npmmirror.com</span>
     var ss = document.getElementById("setupState"); if (ss && _setupRoom) ss.textContent = tf("setup_connected", _setupRoom) + (_setupEnc ? t("setup_encrypted") : "");
   }
   var _setupRoom = "", _setupEnc = false, _connKey = "conn_unconfigured";
-  var ROLE = "guest", cfgHidden = false;   // 角色：guest=游客(直接访问,只看) / participant=参与者(经邀请进入)
+  var ROLE = "owner", cfgHidden = false;   // 角色：owner=邀请发起人 / invitee=被邀请人；cfgHidden=配置是否在页面隐藏
 
-  // 内置 Firebase 配置（混淆：AES-GCM 密文 + 页面内口令解密；源码里没有明文 apiKey，避开扫描器告警）。
-  // ⚠️ 这只是混淆不是真安全——口令在页面里，懂技术的人仍能解出；库靠开放规则对所有人可读写。
-  var BUILTIN_CONFIG_ENC = "91n3oPLlfuUYDX4w.K6ZZuLIQMTdgvSkVjL8VRiB1x93MKZdoaThIeGj24pYtQZe8AH+uxYok/1GasY8BA/G0oGZWEAR9ayL7kzrelhn/ZJ6rwPOUcKU0llObNzqHIB07bm7BBCrwLWu3+UehCIfZS5WDWQIRPwIds0hBVO820+Q9oSbP+3PLu1zkxRiyhGL9jBsoG/Ln4wtq93DvhdnkySyi/rZp7IF1CDaajxixDeLqbsk1UCg53TbyyfL5iaphWy6SYnT6z2ZYhOz8BW+tTNDNeQYl6QlpTKuBE/bCnT60Ixmr1FHN/bGlWVO6iXpeA6LDXQya7Uhj1/2BpYgu45HvVsyFcCCkTbGIqYLoNVaqZzzB+6J75+APbQB/KiCtxEV/f/wfiqGB5+bvnBfto6qiOrCq4+cGtR2TZpx6FK9yWoOs0Xg0Wyyj0SUSXVxqK1gyhwdinU5ique0TyPY0fKF3E0VAw+y2H8HxefXL6DYag==";
-  var BUILTIN_PW = "ws-builtin-cfg-2026", BUILTIN_SALT = "worksync-builtin-salt";
-  var FIXED_ROOM = "lobby";   // 去掉房间概念：所有人共用这一个固定房间
-  function decryptBuiltinConfig() {
-    if (!(window.crypto && crypto.subtle)) return Promise.resolve(null);
-    var te = new TextEncoder();
-    return crypto.subtle.importKey("raw", te.encode(BUILTIN_PW), "PBKDF2", false, ["deriveKey"])
-      .then(function (bk) {
-        return crypto.subtle.deriveKey(
-          { name: "PBKDF2", salt: te.encode(BUILTIN_SALT), iterations: 100000, hash: "SHA-256" },
-          bk, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
-      })
-      .then(function (key) {
-        var p = BUILTIN_CONFIG_ENC.split("."), iv = bytesFromB64(p[0]), ct = bytesFromB64(p[1]);
-        return crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, ct);
-      })
-      .then(function (buf) { return JSON.parse(new TextDecoder().decode(buf)); })
-      .catch(function () { return null; });
-  }
+  // 不再内置任何 Firebase 配置（避免把可写库的凭证公开到仓库）。
+  // 用户须自带配置（粘贴 firebaseConfig）或用别人发来的邀请链接（#cfg=...）自动配好。
+  var BUILTIN_CONFIG = null;
+  var DEFAULT_ROOM = "";
 
   var STATUSES = [
     { key: "working", label: "工作中", ic: "💼", color: "#34d399" },
@@ -705,7 +678,7 @@ npm install --registry=https://registry.npmmirror.com</span>
     connText.textContent = t(_connKey);
   }
   function publish() {
-    if (!myRef || ROLE !== "participant") return;   // 游客不发布，不出现在列表里
+    if (!myRef) return;
     me.updatedAt = Date.now();
     var base = { id: me.id, status: me.status, tz: me.tz, updatedAt: me.updatedAt };
     var content = { name: me.name || t("anon"), message: me.message || "", ip: me.ip || "", loc: me.loc || "" };
@@ -736,14 +709,12 @@ npm install --registry=https://registry.npmmirror.com</span>
     db.ref(".info/connected").on("value", function (snap) {
       if (snap.val() === true) {
         setConn("online", "conn_connected");
-        if (ROLE === "participant") {        // 游客只读，不写任何节点
-          myRef.onDisconnect().remove();     // 断开/关页面时删除自己的 presence 节点（hist 不删，保留时间线）
-          publish();
-          flushHist();                        // 补传离线期间累积的本地记录
-          recordChange(me.status, me.message);// 标记本次上线时刻的状态
-          reconcileHist();                    // 对账：把云端缺失的本地记录强制补上
-          pruneRemote();                      // 清理超 24h 的旧记录
-        }
+        myRef.onDisconnect().remove();       // 断开/关页面时删除自己的 presence 节点（hist 不删，保留时间线）
+        publish();
+        flushHist();                          // 补传离线期间累积的本地记录
+        recordChange(me.status, me.message);  // 标记本次上线时刻的状态
+        reconcileHist();                      // 对账：把云端缺失的本地记录强制补上
+        pruneRemote();                        // 清理超 24h 的旧记录
       } else { setConn("offline", "conn_connecting"); }
     });
 
@@ -769,10 +740,10 @@ npm install --registry=https://registry.npmmirror.com</span>
       alert(tf("conn_db_fail", (err && err.message || err)));
     });
 
-    setInterval(function () { if (connected && ROLE === "participant") { syncSelfFromLS(); publish(); } }, HEARTBEAT_MS);
-    setInterval(function () { if (connected && ROLE === "participant") reconcileHist(); }, 45000);
-    setInterval(function () { if (connected && ROLE === "participant") pruneRemote(); }, 3600000);
-    window.addEventListener("beforeunload", function () { try { if (ROLE === "participant") myRef.remove(); } catch (e) {} });
+    setInterval(function () { if (connected) { syncSelfFromLS(); publish(); } }, HEARTBEAT_MS);   // 心跳前先同步本浏览器其它标签的最新状态
+    setInterval(function () { if (connected) reconcileHist(); }, 45000);   // 周期性对账：把云端缺失的本地记录补上（防本地领先于云端 → 别人看不到）
+    setInterval(function () { if (connected) pruneRemote(); }, 3600000);   // 每小时清理超窗口的旧时间线记录
+    window.addEventListener("beforeunload", function () { try { myRef.remove(); } catch (e) {} });
   }
 
   // ---------- 状态历史时间线（离线优先：本地 localStorage 立即记录，回连补传 Firebase）----------
@@ -1065,12 +1036,12 @@ npm install --registry=https://registry.npmmirror.com</span>
   }
   function render() {
     peopleEl.innerHTML = "";
-    if (ROLE === "participant") peopleEl.appendChild(personCard(me, true));   // 游客不显示自己
+    peopleEl.appendChild(personCard(me, true));
     var ids = Object.keys(others).sort(function (a, b) { return (others[b].updatedAt || 0) - (others[a].updatedAt || 0); });
     if (ids.length === 0) {
       var e = document.createElement("div");
       e.className = "empty";
-      e.textContent = (ROLE === "participant") ? t("empty_waiting") : t("empty_guest");
+      e.textContent = myRef ? t("empty_waiting") : t("empty_setup");
       peopleEl.appendChild(e);
     } else {
       ids.forEach(function (id) { peopleEl.appendChild(personCard(others[id], false)); });
@@ -1103,22 +1074,27 @@ npm install --registry=https://registry.npmmirror.com</span>
     return u;
   }
 
-  // 角色化 UI：游客(直接访问)=只看；参与者(经邀请)=可发言+可邀请。配置已内置，旧的配置粘贴/房间/建库一律隐藏。
+  // 角色化 UI：被邀请人看不到配置/不能邀请；发起人生成邀请后配置隐藏（可切回显示）
   function setDisp(id, show) { var el = $(id); if (el) el.style.display = show ? "" : "none"; }
   function applyRoleUI() {
-    var guest = (ROLE !== "participant");
-    ["cfgStep", "cfgIn", "roomRow", "toggleCfgBtn", "guideDetails", "wipeRoomBtn", "inviteeNote"].forEach(function (id) { setDisp(id, false); });
-    var gn = $("guestNote"); if (gn) { gn.style.display = guest ? "" : "none"; if (guest) gn.textContent = t("guest_note"); }
-    setDisp("inviteStep", !guest);                                  // 邀请相关：仅参与者
-    if ($("shareLink")) $("shareLink").style.display = guest ? "none" : "";
-    setDisp("copyShare", !guest);
-    setDisp("copyMyId", !guest);
-    var cb = $("clearBtn"); if (cb) { cb.style.display = guest ? "none" : ""; cb.textContent = t("leave_btn"); }
-    setDisp("mePanel", !guest);                                     // 我的状态面板：仅参与者
-    var grid = $("grid"); if (grid) grid.style.gridTemplateColumns = guest ? "1fr" : "";
-    var ss = $("setupState"); if (ss) ss.textContent = guest ? t("guest_state") : t("joined_state");
+    var invitee = (ROLE === "invitee");
+    var hideCfg = invitee || cfgHidden;
+    setDisp("cfgStep", !hideCfg);
+    if ($("cfgIn")) $("cfgIn").style.display = hideCfg ? "none" : "";
+    setDisp("roomRow", !hideCfg);
+    setDisp("guideDetails", !hideCfg);
+    setDisp("inviteStep", !invitee);                 // 邀请相关：仅发起人
+    if ($("shareLink")) $("shareLink").style.display = invitee ? "none" : "";
+    setDisp("copyShare", !invitee);
+    setDisp("wipeRoomBtn", !invitee);                // 破坏性操作仅发起人
+    var tog = $("toggleCfgBtn");
+    if (tog) { tog.style.display = invitee ? "none" : ""; tog.textContent = cfgHidden ? t("show_cfg") : t("hide_cfg"); }
+    var note = $("inviteeNote");
+    if (note) { note.style.display = invitee ? "" : "none"; if (invitee) note.textContent = tf("invitee_note", _setupRoom || (roomIn && roomIn.value) || "?"); }
   }
-  if ($("toggleCfgBtn")) $("toggleCfgBtn").onclick = function () { applyRoleUI(); };
+  $("toggleCfgBtn").onclick = function () {
+    cfgHidden = !cfgHidden; LS.setItem("ws_cfg_hidden", cfgHidden ? "1" : "0"); applyRoleUI();
+  };
 
   $("saveBtn").onclick = function () {
     var room = roomIn.value.trim();
@@ -1145,9 +1121,9 @@ npm install --registry=https://registry.npmmirror.com</span>
     if (navigator.clipboard) navigator.clipboard.writeText(v).then(function(){ flash($("copyMyIdOk"), tf("copied_id", v)); }).catch(function(){ flash($("copyMyIdOk"), v); });
     else flash($("copyMyIdOk"), v);
   };
-  $("clearBtn").onclick = function () {   // 退出参与，变回游客
-    LS.removeItem("ws_participant");
-    try { if (myRef) myRef.remove(); } catch (e) {}   // 退出前删掉自己的在线节点
+  $("clearBtn").onclick = function () {
+    if (!confirm(t("clear_confirm"))) return;
+    LS.removeItem("ws_fb_cfg"); LS.removeItem("ws_fb_room");
     location.href = location.origin + location.pathname; location.reload();
   };
   $("wipeRoomBtn").onclick = function () {
@@ -1179,33 +1155,45 @@ npm install --registry=https://registry.npmmirror.com</span>
     var sel = $("langSel");
     if (sel) { sel.value = LANG; sel.onchange = function () { setLang(sel.value); }; }
   })();
+  connText.textContent = t("conn_unconfigured");
   updateNotifyBtn();
 
-  // 角色：带 #join（邀请链接）进来 = 参与者；直接访问 = 游客
-  if ((location.hash || "").indexOf("join") >= 0) {
-    LS.setItem("ws_participant", "1");
+  var fromHash = readHash();
+  if (fromHash) {
+    LS.setItem("ws_fb_cfg", JSON.stringify(fromHash.config));
+    if (fromHash.room) LS.setItem("ws_fb_room", fromHash.room);
+    LS.setItem("ws_fb_key", fromHash.key || "");
+    LS.setItem("ws_role", "invitee");   // 通过邀请链接进来的 = 被邀请人
     history.replaceState(null, "", location.pathname + location.search);
   }
-  ROLE = (LS.getItem("ws_participant") === "1") ? "participant" : "guest";
-  SECRET = "";   // 单房间默认不加密（游客也要能读消息）
 
-  applyRoleUI();
-  setConn("offline", "conn_connecting");
-  render();
-
-  // 解密内置配置 → 连接固定房间（游客也能连，只读）
-  decryptBuiltinConfig().then(function (cfg) {
-    if (!cfg || !cfg.databaseURL) { setConn("offline", "conn_initfail"); return; }
+  var savedCfg = LS.getItem("ws_fb_cfg"), savedRoom = LS.getItem("ws_fb_room") || "";
+  var savedKey = LS.getItem("ws_fb_key") || "";
+  ROLE = LS.getItem("ws_role") || "owner";
+  cfgHidden = (LS.getItem("ws_cfg_hidden") === "1");
+  SECRET = savedKey;
+  keyIn.value = savedKey;
+  var cfgObj = null;
+  if (savedCfg) { try { cfgObj = JSON.parse(savedCfg); } catch (e) {} }
+  if (!cfgObj) cfgObj = BUILTIN_CONFIG;                 // 现在没有内置配置 → 仍为 null
+  var room = savedRoom || DEFAULT_ROOM;
+  cfgIn.value = cfgObj ? JSON.stringify(cfgObj, null, 2) : "";
+  roomIn.value = room;
+  if (cfgObj && room) {
     try {
-      connectFirebase(cfg, FIXED_ROOM);
-      if ($("shareLink")) $("shareLink").value = location.origin + location.pathname + "#join";
+      connectFirebase(cfgObj, room);
+      $("shareLink").value = buildShareLink(cfgObj, room, savedKey);
+      _setupRoom = room; _setupEnc = !!savedKey;
+      $("setupState").textContent = tf("setup_connected", room) + (savedKey ? t("setup_encrypted") : "");
     } catch (err) {
       setConn("offline", "conn_initfail");
       alert(tf("init_fail", (err && err.message || err)));
     }
-  });
+  }
 
-  fetchIp().then(function () { if (ROLE === "participant") publish(); render(); });
+  applyRoleUI();
+  render();
+  fetchIp().then(function () { publish(); render(); });
 })();
 </script>
 </body>
