@@ -810,21 +810,20 @@ npm install --registry=https://registry.npmmirror.com</span>
   // 渲染 24h 状态色块条
   function buildTimelineBar(id, isSelf) {
     var list = timelineOf(id, isSelf);
-    var now = Date.now(), t0 = now - HIST_WINDOW_MS, span = now - t0;
-    var inWin = [], carry = null;
-    for (var i = 0; i < list.length; i++) { if (list[i].ts < t0) carry = list[i]; else inWin.push(list[i]); }
-    if (!inWin.length && !carry) return '<div class="tl-cap">' + t("tl_none") + '</div>';
+    var now = Date.now(), cut = now - HIST_WINDOW_MS;
+    var inWin = list.filter(function (e) { return e && typeof e.ts === "number" && e.ts >= cut; })
+                    .sort(function (a, b) { return a.ts - b.ts; });
+    if (!inWin.length) return '<div class="tl-cap">' + t("tl_none") + '</div>';
+    // 满铺：从「最早一条记录」到「现在」撑满整条；最早状态在左、当前状态顶到右边缘=现在。
+    // 不按固定 24h 定位（避免左边或右边一大片空白看着像"刚开始/贴右"）。
+    var start = inWin[0].ts, span = (now - start) || 1;
     var pts = [];
-    if (carry) pts.push({ ts: t0, status: carry.status });
     for (var j = 0; j < inWin.length; j++) {
-      if (pts.length && pts[pts.length - 1].ts === inWin[j].ts) pts[pts.length - 1].status = inWin[j].status;
-      else pts.push({ ts: inWin[j].ts, status: inWin[j].status });
+      if (pts.length && pts[pts.length - 1].status === inWin[j].status) continue;   // 合并相邻同状态
+      pts.push({ ts: inWin[j].ts, status: inWin[j].status });
     }
+    pts[0].ts = start;
     var segs = "";
-    // 前导空白：第一条记录之前（t0→首条）这段没有记录，用透明占位把后面的彩色段按时间推到右侧，
-    // 使「当前状态」段正好顶到右边缘=现在（否则彩色全挤在左边，看着像刚开始/早停了）。
-    var lead = (pts[0].ts - t0) / span * 100;
-    if (lead > 0.05) segs += '<div class="tl-seg" style="width:' + lead.toFixed(3) + '%;background:transparent"></div>';
     for (var k = 0; k < pts.length; k++) {
       var startTs = pts[k].ts, endTs = (k + 1 < pts.length) ? pts[k + 1].ts : now;
       var w = (endTs - startTs) / span * 100;
@@ -835,7 +834,7 @@ npm install --registry=https://registry.npmmirror.com</span>
     }
     var lastP = pts[pts.length - 1];
     return '<div class="tl-bar">' + segs + '</div>' +
-           '<div class="tl-cap">' + escapeHtml(tf("tl_cap", inWin.length, stLabel(lastP.status), clockHM(lastP.ts))) + '</div>';
+           '<div class="tl-cap">' + escapeHtml(tf("tl_cap", pts.length, stLabel(lastP.status), clockHM(lastP.ts))) + '</div>';
   }
 
   // ---------- AI agent 芯片（一对多：一个 ownerUid 挂多个 agent，挂在主人卡片下）----------
