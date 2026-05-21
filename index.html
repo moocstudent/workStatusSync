@@ -854,7 +854,7 @@ npm install --registry=https://registry.npmmirror.com</span>
           var entries = agents[aid] || {};
           var arr = Object.keys(entries).map(function (qid) {
             var e = entries[qid] || {};
-            return { qid: qid, fromUid: e.fromUid, fromName: e.fromName || "匿名", question: e.question || "",
+            return { qid: qid, fromUid: e.fromUid, fromName: e.fromName || t("anon"), question: e.question || "",
                      qts: e.qts || 0, answer: e.answer || "", ats: e.ats || 0 };
           }).sort(function (x, y) { return x.qts - y.qts; });
           if (arr.length) qaByAgent[owner + "|" + aid] = arr;
