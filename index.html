@@ -683,6 +683,7 @@ npm install --registry=https://registry.npmmirror.com</span>
         publish();
         flushHist();                          // 补传离线期间累积的本地记录
         recordChange(me.status, me.message);  // 标记本次上线时刻的状态
+        reconcileHist();                      // 对账：把云端缺失的本地记录强制补上
         pruneRemote();                        // 清理超 24h 的旧记录
       } else { setConn("offline", "conn_connecting"); }
     });
@@ -710,7 +711,7 @@ npm install --registry=https://registry.npmmirror.com</span>
     });
 
     setInterval(function () { if (connected) publish(); }, HEARTBEAT_MS);
-    setInterval(function () { if (connected) flushHist(); }, 30000);       // 周期性补传未同步的本地记录（防本地领先于云端 → 别人看不到）
+    setInterval(function () { if (connected) reconcileHist(); }, 45000);   // 周期性对账：把云端缺失的本地记录补上（防本地领先于云端 → 别人看不到）
     setInterval(function () { if (connected) pruneRemote(); }, 3600000);   // 每小时清理超窗口的旧时间线记录
     window.addEventListener("beforeunload", function () { try { myRef.remove(); } catch (e) {} });
   }
@@ -763,6 +764,19 @@ npm install --registry=https://registry.npmmirror.com</span>
 
   // 回连时把所有未同步的本地记录补传
   function flushHist() { loadHist().forEach(function (e) { if (!e.synced) uploadHist(e); }); }
+
+  // 对账：读一次 Firebase 上"自己的节点"，把本地有、但云端这个节点缺失的记录强制补上
+  // （不看 synced 标记 → 能修复任何漂移：标记错、换过 uid、历史上传失败等）。
+  // 保证别人(读 Firebase)看到的时间线 ⊇ 你本地看到的，杜绝"自己看 12 条、别人看 1 条"。
+  function reconcileHist() {
+    if (!histMineRef) return;
+    histMineRef.once("value", function (snap) {
+      var fb = snap.val() || {};
+      loadHist().forEach(function (e) {
+        if (e && e.lid && !fb[e.lid]) { e.synced = false; uploadHist(e); }
+      });
+    });
+  }
 
   // 清理自己 Firebase 上超 24h 的旧记录（时间线节点不随断开删除，仅按时效清）
   function pruneRemote() {
