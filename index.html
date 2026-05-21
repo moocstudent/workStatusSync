@@ -141,8 +141,9 @@
   <!-- Firebase 配置 -->
   <div class="conn-card">
     <h2><span data-i18n="setup_title">🔧 连接设置</span> <span id="setupState" style="font-weight:400;color:var(--muted);font-size:12px;"></span></h2>
+    <div id="inviteeNote" class="hint" style="display:none;margin:6px 0 0;color:var(--amber);"></div>
 
-    <div class="conn-step" data-i18n="step1">① 粘贴你的 Firebase 配置（控制台里的 firebaseConfig）：</div>
+    <div class="conn-step" id="cfgStep" data-i18n="step1">① 粘贴你的 Firebase 配置（控制台里的 firebaseConfig）：</div>
     <textarea id="cfgIn" placeholder='const firebaseConfig = {
   apiKey: "...",
   authDomain: "xxx.firebaseapp.com",
@@ -151,7 +152,7 @@
   ...
 };'></textarea>
 
-    <div class="row2" style="margin-top:12px;">
+    <div class="row2" id="roomRow" style="margin-top:12px;">
       <div class="grow">
         <span class="lbl" data-i18n="step2_label">② 房间名（你和对方填一样的，建议用随机串）</span>
         <input class="t" id="roomIn" data-i18n-ph="room_ph" placeholder="如 jody-alex-7x9k" />
@@ -163,16 +164,17 @@
       <button class="btn" id="saveBtn" data-i18n="save_btn">保存并连接</button>
     </div>
 
-    <div class="conn-step" data-i18n="step3">③ 把邀请链接发给对方（已含配置，对方点开自动连上同一房间）：</div>
+    <div class="conn-step" id="inviteStep" data-i18n="step3">③ 把邀请链接发给对方（已含配置，对方点开自动连上同一房间）：</div>
     <input id="shareLink" class="link-in" readonly data-i18n-ph="share_ph" placeholder="保存连接后出现…" />
     <div class="btn-row">
       <button class="btn sec" id="copyShare" data-i18n="copy_share">复制邀请链接</button><span id="copyShareOk"></span>
+      <button class="btn sec" id="toggleCfgBtn" style="display:none;">🙈 隐藏配置</button>
       <button class="btn sec" id="copyMyId" data-i18n="copy_myid">🤖 复制我的ID（给AI用）</button><span id="copyMyIdOk"></span>
       <button class="btn sec" id="wipeRoomBtn" data-i18n="wipe_room">🧹 清空当前房间</button>
       <button class="btn sec" id="clearBtn" data-i18n="clear_cfg" style="margin-left:auto;">清除本机配置</button>
     </div>
 
-    <details>
+    <details id="guideDetails">
       <summary data-i18n="guide_summary">📖 还没有 Firebase 配置？点这里看 3 分钟建库步骤（免费、免信用卡）</summary>
       <ol data-i18n-html="guide_ol">
         <li>打开 <code>console.firebase.google.com</code> → 用 Google 账号登录 → 「添加项目」，名字随便填，关掉 Google Analytics 即可。</li>
@@ -302,7 +304,9 @@ npm install --registry=https://registry.npmmirror.com</span>
       wipe_confirm: "将删除房间「{0}」里所有人的节点（含离线/重复残留）。\n清空后会立刻只保留你自己；让对方刷新即可重新进入。\n\n继续？",
       wipe_done: "已清空房间，现在只剩你自己 ✓", wipe_fail: "清空失败：{0}",
       conn_db_fail: "连接数据库失败：{0}\n\n多半是数据库规则不允许读写，请按设置里的步骤把规则设为允许，或用「测试模式」。",
-      init_fail: "Firebase 初始化失败：{0}", setup_connected: "· 已连接房间「{0}」", setup_encrypted: " · 🔒已加密"
+      init_fail: "Firebase 初始化失败：{0}", setup_connected: "· 已连接房间「{0}」", setup_encrypted: " · 🔒已加密",
+      invitee_note: "🔒 你通过邀请加入房间「{0}」——Firebase 配置由邀请人持有，本页不显示，你也不能再邀请他人。",
+      show_cfg: "🔧 显示配置", hide_cfg: "🙈 隐藏配置"
     },
     en: {
       title: "WorkSync · cross-timezone status sync (Firebase Realtime DB)",
@@ -364,7 +368,9 @@ npm install --registry=https://registry.npmmirror.com</span>
       wipe_confirm: 'This deletes everyone\'s node in room "{0}" (including offline/duplicate leftovers).\nAfterwards only you remain; others can refresh to rejoin.\n\nContinue?',
       wipe_done: "Room cleared, only you remain now ✓", wipe_fail: "Clear failed: {0}",
       conn_db_fail: "Failed to connect to the database: {0}\n\nMost likely the database rules don't allow read/write; set the rules to allow per the setup steps, or use \"test mode\".",
-      init_fail: "Firebase init failed: {0}", setup_connected: '· Connected to room "{0}"', setup_encrypted: " · 🔒 encrypted"
+      init_fail: "Firebase init failed: {0}", setup_connected: '· Connected to room "{0}"', setup_encrypted: " · 🔒 encrypted",
+      invitee_note: '🔒 You joined room "{0}" via invite — the Firebase config is held by the inviter and not shown here; you can\'t invite others.',
+      show_cfg: "🔧 Show config", hide_cfg: "🙈 Hide config"
     },
     ja: {
       title: "WorkSync · タイムゾーンを越えた状態同期（Firebase Realtime DB）",
@@ -426,7 +432,9 @@ npm install --registry=https://registry.npmmirror.com</span>
       wipe_confirm: "ルーム「{0}」の全員のノード（オフライン/重複残りを含む）を削除します。\n実行後はあなただけ残ります。相手は再読み込みで再参加できます。\n\n続けますか？",
       wipe_done: "ルームを空にしました。今はあなただけです ✓", wipe_fail: "クリアに失敗：{0}",
       conn_db_fail: "データベース接続に失敗：{0}\n\n多くの場合ルールが読み書きを許可していません。設定手順に従って許可するか「テストモード」を使ってください。",
-      init_fail: "Firebase 初期化に失敗：{0}", setup_connected: "· ルーム「{0}」に接続", setup_encrypted: " · 🔒 暗号化"
+      init_fail: "Firebase 初期化に失敗：{0}", setup_connected: "· ルーム「{0}」に接続", setup_encrypted: " · 🔒 暗号化",
+      invitee_note: "🔒 招待でルーム「{0}」に参加 —— Firebase 設定は招待者が保持し、ここには表示されません。他の人を招待することもできません。",
+      show_cfg: "🔧 設定を表示", hide_cfg: "🙈 設定を隠す"
     }
   };
   function detectLang() {
@@ -454,11 +462,13 @@ npm install --registry=https://registry.npmmirror.com</span>
     if (!I18N[l]) return;
     LANG = l; try { window.localStorage.setItem("ws_lang", l); } catch (e) {}
     applyStaticI18n(); renderPills(); updateNotifyBtn(); render();
+    if (typeof applyRoleUI === "function") applyRoleUI();
     var sel = document.getElementById("langSel"); if (sel) sel.value = l;
     var ct = document.getElementById("connText"); if (ct) ct.textContent = t(_connKey);
     var ss = document.getElementById("setupState"); if (ss && _setupRoom) ss.textContent = tf("setup_connected", _setupRoom) + (_setupEnc ? t("setup_encrypted") : "");
   }
   var _setupRoom = "", _setupEnc = false, _connKey = "conn_unconfigured";
+  var ROLE = "owner", cfgHidden = false;   // 角色：owner=邀请发起人 / invitee=被邀请人；cfgHidden=配置是否在页面隐藏
 
   // 不再内置任何 Firebase 配置（避免把可写库的凭证公开到仓库）。
   // 用户须自带配置（粘贴 firebaseConfig）或用别人发来的邀请链接（#cfg=...）自动配好。
@@ -1013,9 +1023,33 @@ npm install --registry=https://registry.npmmirror.com</span>
     if (key) u += "&k=" + b64uEnc(key);   // 口令放在 hash 里，仅客户端、不会发往服务器
     return u;
   }
+
+  // 角色化 UI：被邀请人看不到配置/不能邀请；发起人生成邀请后配置隐藏（可切回显示）
+  function setDisp(id, show) { var el = $(id); if (el) el.style.display = show ? "" : "none"; }
+  function applyRoleUI() {
+    var invitee = (ROLE === "invitee");
+    var hideCfg = invitee || cfgHidden;
+    setDisp("cfgStep", !hideCfg);
+    if ($("cfgIn")) $("cfgIn").style.display = hideCfg ? "none" : "";
+    setDisp("roomRow", !hideCfg);
+    setDisp("guideDetails", !hideCfg);
+    setDisp("inviteStep", !invitee);                 // 邀请相关：仅发起人
+    if ($("shareLink")) $("shareLink").style.display = invitee ? "none" : "";
+    setDisp("copyShare", !invitee);
+    setDisp("wipeRoomBtn", !invitee);                // 破坏性操作仅发起人
+    var tog = $("toggleCfgBtn");
+    if (tog) { tog.style.display = invitee ? "none" : ""; tog.textContent = cfgHidden ? t("show_cfg") : t("hide_cfg"); }
+    var note = $("inviteeNote");
+    if (note) { note.style.display = invitee ? "" : "none"; if (invitee) note.textContent = tf("invitee_note", _setupRoom || (roomIn && roomIn.value) || "?"); }
+  }
+  $("toggleCfgBtn").onclick = function () {
+    cfgHidden = !cfgHidden; LS.setItem("ws_cfg_hidden", cfgHidden ? "1" : "0"); applyRoleUI();
+  };
+
   $("saveBtn").onclick = function () {
     var room = roomIn.value.trim();
     if (!room) { alert(t("need_room")); return; }
+    LS.setItem("ws_role", "owner");   // 手动粘贴配置并连接的人 = 邀请发起人
     var config;
     try { config = parseConfig(cfgIn.value); }
     catch (err) { alert(tf("cfg_parse_fail", err.message)); return; }
@@ -1030,6 +1064,7 @@ npm install --registry=https://registry.npmmirror.com</span>
     if (!v) { flash($("copyShareOk"), t("save_first")); return; }
     if (navigator.clipboard) navigator.clipboard.writeText(v).then(function(){ flash($("copyShareOk"), t("copied_ok")); }).catch(function(){ flash($("copyShareOk"), t("copy_manual")); });
     else flash($("copyShareOk"), t("copy_manual"));
+    cfgHidden = true; LS.setItem("ws_cfg_hidden", "1"); applyRoleUI();   // 生成邀请后，配置随即在页面隐藏
   };
   $("copyMyId").onclick = function () {
     var v = MY_ID;
@@ -1078,11 +1113,14 @@ npm install --registry=https://registry.npmmirror.com</span>
     LS.setItem("ws_fb_cfg", JSON.stringify(fromHash.config));
     if (fromHash.room) LS.setItem("ws_fb_room", fromHash.room);
     LS.setItem("ws_fb_key", fromHash.key || "");
+    LS.setItem("ws_role", "invitee");   // 通过邀请链接进来的 = 被邀请人
     history.replaceState(null, "", location.pathname + location.search);
   }
 
   var savedCfg = LS.getItem("ws_fb_cfg"), savedRoom = LS.getItem("ws_fb_room") || "";
   var savedKey = LS.getItem("ws_fb_key") || "";
+  ROLE = LS.getItem("ws_role") || "owner";
+  cfgHidden = (LS.getItem("ws_cfg_hidden") === "1");
   SECRET = savedKey;
   keyIn.value = savedKey;
   var cfgObj = null;
@@ -1103,6 +1141,7 @@ npm install --registry=https://registry.npmmirror.com</span>
     }
   }
 
+  applyRoleUI();
   render();
   fetchIp().then(function () { publish(); render(); });
 })();
