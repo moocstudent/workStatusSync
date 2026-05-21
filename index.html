@@ -549,13 +549,21 @@ npm install --registry=https://registry.npmmirror.com</span>
     } else { alert(t("notify_denied")); }
   };
   function fireNotify(title, body) { try { new Notification(title, { body: body || "", tag: "worksync", renotify: true }); } catch (e) {} }
+  // 去重：同一个人、同样内容的通知 30s 内不重复弹（防节点抖动/重连导致的反复弹）
+  var lastFired = {};
+  function fireOnce(id, sig, title, body) {
+    var lf = lastFired[id], now = Date.now();
+    if (lf && lf.sig === sig && (now - lf.ts) < 30000) return;
+    lastFired[id] = { sig: sig, ts: now };
+    fireNotify(title, body);
+  }
   function maybeNotify(d) {
     var prev = lastSeen[d.id];
     lastSeen[d.id] = { status: d.status, message: d.message, name: d.name };
     if (!notifyOn || !(notifySupported() && Notification.permission === "granted") || !notifyReady) return;
-    if (!prev) { fireNotify(tf("notif_joined", d.name || t("peer_new")), stLabel(d.status)); return; }
-    if (prev.status !== d.status) fireNotify((d.name || t("peer")) + " · " + stLabel(d.status), d.message || "");
-    else if (prev.message !== d.message && d.message) fireNotify(tf("notif_updated_msg", d.name || t("peer")), d.message);
+    if (!prev) { fireOnce(d.id, "join:" + d.status, tf("notif_joined", d.name || t("peer_new")), stLabel(d.status)); return; }
+    if (prev.status !== d.status) fireOnce(d.id, "st:" + d.status + ":" + (d.message || ""), (d.name || t("peer")) + " · " + stLabel(d.status), d.message || "");
+    else if (prev.message !== d.message && d.message) fireOnce(d.id, "msg:" + d.message, tf("notif_updated_msg", d.name || t("peer")), d.message);
   }
 
   // ---------- IP ----------
@@ -597,6 +605,28 @@ npm install --registry=https://registry.npmmirror.com</span>
   function debouncedPublish() { clearTimeout(pubTimer); pubTimer = setTimeout(publish, 300); }
   nameInput.oninput = function () { me.name = nameInput.value.trim(); LS.setItem("ws_name", me.name); debouncedPublish(); };
   msgInput.oninput = function () { me.message = msgInput.value; LS.setItem("ws_msg", me.message); debouncedPublish(); };
+
+  // 多标签页同步：同一浏览器的多个标签共用同一身份(ws_uid)。若各标签内存里的状态不同步，
+  // 每次心跳会各写各的 → Firebase 节点状态来回跳 → 别人被反复通知。
+  // 解决：心跳前 + 收到 storage 事件时，都从 localStorage 读最新值，让所有标签统一。
+  function syncSelfFromLS() {
+    var changed = false;
+    var s = LS.getItem("ws_status");
+    if (s && s !== me.status) {
+      me.status = s; changed = true;
+      Array.prototype.forEach.call(pillsEl.children, function (c) { c.classList.toggle("active", c.dataset.key === s); });
+    }
+    var n = LS.getItem("ws_name");
+    if (n != null && n !== me.name) { me.name = n; if (document.activeElement !== nameInput) nameInput.value = n; changed = true; }
+    var m = LS.getItem("ws_msg");
+    if (m != null && m !== me.message) { me.message = m; if (document.activeElement !== msgInput) msgInput.value = m; changed = true; }
+    return changed;
+  }
+  window.addEventListener("storage", function (e) {
+    if (!e.key || e.key.indexOf("ws_") !== 0) return;
+    if (syncSelfFromLS() && connected) publish();
+    render();
+  });
 
   // ---------- 内容端到端加密（AES-GCM；口令经 PBKDF2 派生，口令永不入库）----------
   var SECRET = "";            // 加密口令（来自本机/链接），为空则不加密
@@ -710,7 +740,7 @@ npm install --registry=https://registry.npmmirror.com</span>
       alert(tf("conn_db_fail", (err && err.message || err)));
     });
 
-    setInterval(function () { if (connected) publish(); }, HEARTBEAT_MS);
+    setInterval(function () { if (connected) { syncSelfFromLS(); publish(); } }, HEARTBEAT_MS);   // 心跳前先同步本浏览器其它标签的最新状态
     setInterval(function () { if (connected) reconcileHist(); }, 45000);   // 周期性对账：把云端缺失的本地记录补上（防本地领先于云端 → 别人看不到）
     setInterval(function () { if (connected) pruneRemote(); }, 3600000);   // 每小时清理超窗口的旧时间线记录
     window.addEventListener("beforeunload", function () { try { myRef.remove(); } catch (e) {} });
