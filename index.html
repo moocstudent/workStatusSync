@@ -292,7 +292,7 @@ npm install --registry=https://registry.npmmirror.com</span>
       self_tag: "（我）", inactive: "不活跃", localtime: "🕐 当地时间", updated_at: "更新于 {0}",
       ago_unknown: "未知", ago_just: "刚刚", ago_sec: "{0} 秒前", ago_min: "{0} 分钟前", ago_hr: "{0} 小时前", ago_day: "{0} 天前",
       empty_waiting: "已连接房间，等待对方进入同一房间…", empty_setup: "请先在上方填入 Firebase 配置和房间名并「保存并连接」。",
-      tl_none: "📈 近 24h 暂无状态记录", tl_cap: "📈 近 24h · {0} 次变化 · 现「{1}」起于 {2}",
+      tl_none: "📈 近 24h 暂无状态记录", tl_cap: "📈 近 24h · {0} 次变化 · 现「{1}」起于 {2}", tl_norec: "无记录 / 未上线",
       agents_label: "🤖 AI（{0}）", ask_can: "可提问", ask_canleave: "可留言", ask_clickhint: "点击提问",
       qa_pending: "⏳ 等待 {0} 回应…", ai_only_tag: "（仅 AI 在线）",
       ask_prompt: "向「{0}」提问\n（它在线则很快回答，离线则留言，等它下次上线再答）：",
@@ -356,7 +356,7 @@ npm install --registry=https://registry.npmmirror.com</span>
       self_tag: "(me)", inactive: "Inactive", localtime: "🕐 Local time", updated_at: "Updated {0}",
       ago_unknown: "unknown", ago_just: "just now", ago_sec: "{0}s ago", ago_min: "{0}m ago", ago_hr: "{0}h ago", ago_day: "{0}d ago",
       empty_waiting: "Connected. Waiting for others to join the same room…", empty_setup: 'Fill in your Firebase config and room above, then "Save & connect".',
-      tl_none: "📈 No status records in 24h", tl_cap: '📈 24h · {0} changes · now "{1}" since {2}',
+      tl_none: "📈 No status records in 24h", tl_cap: '📈 24h · {0} changes · now "{1}" since {2}', tl_norec: "no record / offline",
       agents_label: "🤖 AI ({0})", ask_can: "Ask", ask_canleave: "Leave a message", ask_clickhint: "click to ask",
       qa_pending: "⏳ Waiting for {0}…", ai_only_tag: "(AI only)",
       ask_prompt: "Ask \"{0}\"\n(answers quickly if online; otherwise it's a message answered next time it's online):",
@@ -420,7 +420,7 @@ npm install --registry=https://registry.npmmirror.com</span>
       self_tag: "（自分）", inactive: "非アクティブ", localtime: "🕐 現地時間", updated_at: "更新 {0}",
       ago_unknown: "不明", ago_just: "たった今", ago_sec: "{0}秒前", ago_min: "{0}分前", ago_hr: "{0}時間前", ago_day: "{0}日前",
       empty_waiting: "接続済み。同じルームに他の人が入るのを待っています…", empty_setup: "上で Firebase 設定とルーム名を入力し「保存して接続」してください。",
-      tl_none: "📈 直近24hの状態記録なし", tl_cap: "📈 直近24h · {0}回変化 · 現在「{1}」（{2}から）",
+      tl_none: "📈 直近24hの状態記録なし", tl_cap: "📈 直近24h · {0}回変化 · 現在「{1}」（{2}から）", tl_norec: "記録なし / 未接続",
       agents_label: "🤖 AI（{0}）", ask_can: "質問可", ask_canleave: "伝言可", ask_clickhint: "クリックで質問",
       qa_pending: "⏳ {0} の返信待ち…", ai_only_tag: "（AIのみ）",
       ask_prompt: "「{0}」に質問\n（オンラインならすぐ回答、オフラインなら伝言として次回オンライン時に回答）：",
@@ -814,16 +814,17 @@ npm install --registry=https://registry.npmmirror.com</span>
     var inWin = list.filter(function (e) { return e && typeof e.ts === "number" && e.ts >= cut; })
                     .sort(function (a, b) { return a.ts - b.ts; });
     if (!inWin.length) return '<div class="tl-cap">' + t("tl_none") + '</div>';
-    // 满铺：从「最早一条记录」到「现在」撑满整条；最早状态在左、当前状态顶到右边缘=现在。
-    // 不按固定 24h 定位（避免左边或右边一大片空白看着像"刚开始/贴右"）。
-    var start = inWin[0].ts, span = (now - start) || 1;
+    // 真实时间轴：横轴 = 最近 24h（左=24h前，右=现在）。没记录/没上线的时段填灰色，
+    // 有状态的时段上色，当前状态一直延伸到右边缘=现在。整条永远填满（灰+彩）。
+    var t0 = now - HIST_WINDOW_MS, span = HIST_WINDOW_MS;
     var pts = [];
     for (var j = 0; j < inWin.length; j++) {
       if (pts.length && pts[pts.length - 1].status === inWin[j].status) continue;   // 合并相邻同状态
       pts.push({ ts: inWin[j].ts, status: inWin[j].status });
     }
-    pts[0].ts = start;
     var segs = "";
+    var leadW = (pts[0].ts - t0) / span * 100;   // 第一条记录之前 = 没上线/没记录 → 灰
+    if (leadW > 0.05) segs += '<div class="tl-seg" style="width:' + leadW.toFixed(3) + '%;background:#333a47" title="' + escapeHtml(t("tl_norec")) + '"></div>';
     for (var k = 0; k < pts.length; k++) {
       var startTs = pts[k].ts, endTs = (k + 1 < pts.length) ? pts[k + 1].ts : now;
       var w = (endTs - startTs) / span * 100;
