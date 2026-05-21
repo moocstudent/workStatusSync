@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WorkSync · 跨时区状态同步（Firebase 实时库）</title>
+<style>
+  :root {
+    --bg: #0f1115; --card: #1a1d24; --card-2: #232730; --border: #2d323d;
+    --text: #e6e8ec; --muted: #8a909c; --accent: #5b8cff;
+    --green: #34d399; --amber: #fbbf24; --red: #f87171; --gray: #6b7280; --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, #1b2333 0%, var(--bg) 55%);
+    color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 28px 18px 60px; }
+
+  header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .logo { width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, #ffca28, #ff8f00); display: grid; place-items: center; font-size: 20px; }
+  .brand h1 { font-size: 18px; margin: 0; letter-spacing: .3px; }
+  .brand p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+
+  .conn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .conn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray); }
+  .conn.online .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+  .notify-btn { background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 9px; padding: 6px 11px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .notify-btn:hover { border-color: var(--accent); }
+  .notify-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .conn-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 18px; }
+  .conn-card h2 { font-size: 14px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .conn-step { font-size: 13px; color: var(--text); margin: 12px 0 6px; font-weight: 500; }
+  .conn-card textarea, .conn-card input.t { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; color: var(--text); padding: 9px 11px; font-size: 13px; outline: none; font-family: inherit; }
+  .conn-card textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; resize: vertical; min-height: 90px; word-break: break-all; }
+  .conn-card textarea:focus, .conn-card input.t:focus { border-color: var(--accent); }
+  .btn { background: var(--accent); color: #fff; border: none; border-radius: 9px; padding: 9px 14px; font-size: 13px; cursor: pointer; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.sec { background: var(--card-2); border: 1px solid var(--border); color: var(--text); }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.65; margin: 8px 0 0; }
+  .ok-flash { color: var(--green); font-size: 12px; margin-left: 4px; }
+  .link-in { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; color: var(--accent); padding: 9px 11px; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; outline: none; word-break: break-all; }
+  details { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+  details summary { cursor: pointer; font-size: 13px; color: var(--accent); }
+  details ol { margin: 10px 0 0; padding-left: 20px; font-size: 13px; color: var(--text); line-height: 1.8; }
+  details code, .codeblock { background: var(--bg); border: 1px solid var(--border); padding: 1px 6px; border-radius: 5px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: var(--text); }
+  .codeblock { display: block; padding: 10px 12px; margin-top: 8px; white-space: pre; overflow-x: auto; }
+  .row2 { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .row2 .grow { flex: 1; min-width: 160px; }
+  .lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .section-title { font-size: 13px; color: var(--muted); margin: 6px 2px 10px; text-transform: uppercase; letter-spacing: 1px; }
+
+  .me { background: linear-gradient(180deg, var(--card-2), var(--card)); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .me .row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .field { flex: 1; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .field input, .field textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; color: var(--text); padding: 9px 11px; font-size: 14px; outline: none; font-family: inherit; }
+  .field textarea { resize: vertical; min-height: 38px; }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+
+  .status-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill { border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 7px 13px; font-size: 13px; cursor: pointer; color: var(--text); display: inline-flex; align-items: center; gap: 6px; transition: all .12s; }
+  .pill:hover { border-color: var(--accent); }
+  .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .people { display: flex; flex-direction: column; gap: 12px; }
+  .person { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 15px 16px; display: flex; gap: 14px; align-items: flex-start; }
+  .person.self { border-color: #3a4660; background: var(--card-2); }
+  .avatar { width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; display: grid; place-items: center; font-size: 18px; font-weight: 700; color: #fff; }
+  .pinfo { flex: 1; min-width: 0; }
+  .pname { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; font-weight: 500; }
+  .badge .d { width: 7px; height: 7px; border-radius: 50%; }
+  .pmsg { font-size: 13px; color: var(--text); margin-top: 5px; word-break: break-word; }
+  .pmsg:empty { display: none; }
+  .pmeta { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.7; }
+  .pmeta .clock { color: var(--text); font-variant-numeric: tabular-nums; }
+  .stale { color: var(--amber); }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+
+  .tl-wrap { margin-top: 11px; }
+  .tl-bar { display: flex; height: 9px; border-radius: 5px; overflow: hidden; background: var(--bg); border: 1px solid var(--border); }
+  .tl-seg { height: 100%; min-width: 1px; }
+  .tl-cap { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  .agents-label { font-size: 11px; color: var(--muted); margin: 11px 0 5px; letter-spacing: .5px; }
+  .agents { display: flex; flex-direction: column; gap: 8px; }
+  .agent-block { min-width: 0; }
+  .agent-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 12px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .agent-chip .ac-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .agent-chip .ac-name { font-weight: 600; white-space: nowrap; }
+  .agent-chip .ac-task { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+  .agent-chip .ac-ask { color: var(--accent); white-space: nowrap; }
+  .agent-chip.stale { opacity: .45; }
+  .agent-chip.askable { cursor: pointer; }
+  .agent-chip.askable:hover { border-color: var(--accent); }
+  .person.ai-only { border-style: dashed; }
+  .qa { margin: 6px 0 2px 14px; display: flex; flex-direction: column; gap: 6px; border-left: 2px solid var(--border); padding-left: 10px; }
+  .qa-item { font-size: 12px; line-height: 1.55; word-break: break-word; }
+  .qa-q .qa-from { color: var(--muted); }
+  .qa-a { color: var(--green); margin-top: 2px; }
+  .qa-pending { color: var(--amber); margin-top: 2px; }
+
+  footer { margin-top: 30px; text-align: center; font-size: 12px; color: var(--muted); line-height: 1.8; }
+  footer code { background: var(--card); padding: 2px 6px; border-radius: 5px; color: var(--text); }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-database-compat.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">🔥</div>
+      <div>
+        <h1>WorkSync</h1>
+        <p data-i18n="tagline">跨时区 · 实时状态同步 · Firebase 实时库（任何网络可用）</p>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <select id="langSel" class="notify-btn" style="padding:6px 8px;" title="Language / 语言 / 言語">
+        <option value="zh">中文</option>
+        <option value="en">English</option>
+        <option value="ja">日本語</option>
+      </select>
+      <span class="conn" id="conn"><span class="dot"></span><span id="connText">未配置</span></span>
+      <button class="notify-btn" id="notifyBtn" data-i18n-title="notify_title" title="开启桌面通知，对方状态变化时提醒你">🔕 通知</button>
+    </div>
+  </header>
+
+  <!-- Firebase 配置 -->
+  <div class="conn-card">
+    <h2><span data-i18n="setup_title">🔧 连接设置</span> <span id="setupState" style="font-weight:400;color:var(--muted);font-size:12px;"></span></h2>
+
+    <div class="conn-step" data-i18n="step1">① 粘贴你的 Firebase 配置（控制台里的 firebaseConfig）：</div>
+    <textarea id="cfgIn" placeholder='const firebaseConfig = {
+  apiKey: "...",
+  authDomain: "xxx.firebaseapp.com",
+  databaseURL: "https://xxx-default-rtdb.firebaseio.com",
+  projectId: "xxx",
+  ...
+};'></textarea>
+
+    <div class="row2" style="margin-top:12px;">
+      <div class="grow">
+        <span class="lbl" data-i18n="step2_label">② 房间名（你和对方填一样的，建议用随机串）</span>
+        <input class="t" id="roomIn" data-i18n-ph="room_ph" placeholder="如 jody-alex-7x9k" />
+      </div>
+      <div class="grow">
+        <span class="lbl" data-i18n="key_label">🔒 加密口令（可选，两人须一致）</span>
+        <input class="t" id="keyIn" data-i18n-ph="key_ph" placeholder="留空=不加密；填了=端到端加密" />
+      </div>
+      <button class="btn" id="saveBtn" data-i18n="save_btn">保存并连接</button>
+    </div>
+
+    <div class="conn-step" data-i18n="step3">③ 把邀请链接发给对方（已含配置，对方点开自动连上同一房间）：</div>
+    <input id="shareLink" class="link-in" readonly data-i18n-ph="share_ph" placeholder="保存连接后出现…" />
+    <div class="btn-row">
+      <button class="btn sec" id="copyShare" data-i18n="copy_share">复制邀请链接</button><span id="copyShareOk"></span>
+      <button class="btn sec" id="copyMyId" data-i18n="copy_myid">🤖 复制我的ID（给AI用）</button><span id="copyMyIdOk"></span>
+      <button class="btn sec" id="wipeRoomBtn" data-i18n="wipe_room">🧹 清空当前房间</button>
+      <button class="btn sec" id="clearBtn" data-i18n="clear_cfg" style="margin-left:auto;">清除本机配置</button>
+    </div>
+
+    <details>
+      <summary data-i18n="guide_summary">📖 还没有 Firebase 配置？点这里看 3 分钟建库步骤（免费、免信用卡）</summary>
+      <ol data-i18n-html="guide_ol">
+        <li>打开 <code>console.firebase.google.com</code> → 用 Google 账号登录 → 「添加项目」，名字随便填，关掉 Google Analytics 即可。</li>
+      </ol>
+    </details>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="section-title" data-i18n="sec_my">我的状态</div>
+      <div class="me">
+        <div class="row">
+          <div class="field"><label data-i18n="lbl_nick">昵称</label><input id="nameInput" data-i18n-ph="nick_ph" placeholder="你的名字" maxlength="20" /></div>
+        </div>
+        <div class="field" style="margin-bottom:12px;">
+          <label data-i18n="lbl_status">状态</label>
+          <div class="status-pills" id="statusPills"></div>
+        </div>
+        <div class="field">
+          <label data-i18n="lbl_msg">留言 / 备注（可选）</label>
+          <textarea id="msgInput" data-i18n-ph="msg_ph" placeholder="例：12:00 后有空 / 在写需求文档…" maxlength="120"></textarea>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title" data-i18n="sec_everyone">大家的状态</div>
+      <div class="people" id="people"></div>
+    </div>
+  </div>
+
+  <!-- MCP 接入说明（给 AI / AI Agent 自助接入；把本页 URL 发给对方的 AI 即可照做） -->
+  <div class="conn-card" id="mcpGuide">
+    <h2 data-i18n="mcp_title">🤖 接入 MCP · 让你的 AI 出现在这里</h2>
+    <p class="hint" data-i18n-html="mcp_intro">
+      本页背后有一个 MCP 服务。
+    </p>
+
+    <div class="conn-step" data-i18n="mcp_step1">① 取得服务端代码并安装依赖（Node 18+）：</div>
+    <span class="codeblock">git clone https://github.com/moocstudent/workStatusSync.git
+cd workStatusSync/mcp
+npm install --registry=https://registry.npmmirror.com</span>
+
+    <div class="conn-step" data-i18n="mcp_step2">② 在本页点上方「🤖 复制我的ID（给AI用）」，拿到你的 ownerUid。</div>
+
+    <div class="conn-step" data-i18n="mcp_step3">③ 在 Claude / 任意 MCP 客户端的配置里加入（把绝对路径和 ID 换成你的）：</div>
+    <span class="codeblock" data-i18n-html="mcp_cfg">{ }</span>
+
+    <div class="conn-step" data-i18n-html="mcp_step4">④ 让 AI 调用 <code>worksync_join</code>。</div>
+
+    <details>
+      <summary data-i18n="mcp_tools_summary">🛠 可用工具 / 给 AI 的提示</summary>
+      <ol data-i18n-html="mcp_tools_ol">
+        <li><code>worksync_join</code></li>
+      </ol>
+      <p class="hint" data-i18n-html="mcp_tools_note">给 AI 的提示。</p>
+    </details>
+  </div>
+
+  <footer data-i18n-html="footer">
+    数据通过你自己的 Firebase 实时库同步——纯前端、无需你维护服务器，任何网络都能连。
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- i18n（中/英/日；自动检测 + 右上角切换器，记忆到 localStorage）----------
+  var I18N = {
+    zh: {
+      title: "WorkSync · 跨时区状态同步（Firebase 实时库）",
+      tagline: "跨时区 · 实时状态同步 · Firebase 实时库（任何网络可用）",
+      notify_title: "开启桌面通知，对方状态变化时提醒你",
+      setup_title: "🔧 连接设置",
+      step1: "① 粘贴你的 Firebase 配置（控制台里的 firebaseConfig）：",
+      step2_label: "② 房间名（你和对方填一样的，建议用随机串）",
+      room_ph: "如 jody-alex-7x9k",
+      key_label: "🔒 加密口令（可选，两人须一致）",
+      key_ph: "留空=不加密；填了=端到端加密",
+      save_btn: "保存并连接",
+      step3: "③ 把邀请链接发给对方（已含配置，对方点开自动连上同一房间）：",
+      share_ph: "保存连接后出现…",
+      copy_share: "复制邀请链接",
+      copy_myid: "🤖 复制我的ID（给AI用）",
+      wipe_room: "🧹 清空当前房间",
+      clear_cfg: "清除本机配置",
+      guide_summary: "📖 还没有 Firebase 配置？点这里看 3 分钟建库步骤（免费、免信用卡）",
+      guide_ol: `<li>打开 <code>console.firebase.google.com</code> → 用 Google 账号登录 → 「添加项目」，名字随便填，关掉 Google Analytics 即可。</li><li>左侧「构建 / Build」→「Realtime Database」→「创建数据库」→ 位置随便选 → <strong>选「以测试模式启动」</strong>（或之后到「规则」粘贴下面的规则）。</li><li>项目首页点「&lt;/&gt;」（Web）图标添加一个网页应用 → 注册后会显示一段 <code>firebaseConfig = {…}</code> → <strong>整段复制</strong>粘到上面①。</li><li>填②房间名 → 点「保存并连接」。把③的邀请链接发给对方即可。</li><li>建议把数据库规则设为（控制台 → Realtime Database → 规则）：<span class="codeblock">{\n  "rules": {\n    "rooms": { "$r": { ".read": true, ".write": true } }\n  }\n}</span>（仅靠房间名保密；要更严可加身份验证，超出当前范围。）</li>`,
+      sec_my: "我的状态",
+      lbl_nick: "昵称",
+      nick_ph: "你的名字",
+      lbl_status: "状态",
+      lbl_msg: "留言 / 备注（可选）",
+      msg_ph: "例：12:00 后有空 / 在写需求文档…",
+      sec_everyone: "大家的状态",
+      mcp_title: "🤖 接入 MCP · 让你的 AI 出现在这里",
+      mcp_intro: `本页背后有一个 MCP 服务。AI / AI Agent 连上后，会作为「附属芯片」出现在它主人这张卡片的下面（<strong>一个人可挂多个 AI</strong>），能播报自己正在做什么，也能读取房间里所有人和 AI 的状态与历史时间线。<br/>源码与本页同仓库：<code>https://github.com/moocstudent/workStatusSync</code>（目录 <code>mcp/</code>）。`,
+      mcp_step1: "① 取得服务端代码并安装依赖（Node 18+）：",
+      mcp_step2: "② 在本页点上方「🤖 复制我的ID（给AI用）」，拿到你的 ownerUid。",
+      mcp_step3: "③ 在 Claude / 任意 MCP 客户端的配置里加入（把绝对路径和 ID 换成你的）：",
+      mcp_cfg: `{\n  "mcpServers": {\n    "worksync": {\n      "command": "node",\n      "args": ["/绝对路径/workStatusSync/mcp/server.js"],\n      "env": {\n        "WS_DATABASE_URL": "https://你的项目-default-rtdb.firebaseio.com",\n        "WS_API_KEY": "你的 apiKey",\n        "WS_ROOM": "main",\n        "WS_OWNER_UID": "粘贴你复制的ID",\n        "WS_OWNER_NAME": "你的名字",\n        "WS_AGENT_NAME": "Claude"\n      }\n    }\n  }\n}`,
+      mcp_step4: `④ 让 AI 调用 <code>worksync_join</code>，它就出现在你卡片下了。多开几个（改 <code>WS_AGENT_NAME</code> / <code>WS_AGENT_ID</code>）即「一人多 AI」。`,
+      mcp_tools_summary: "🛠 可用工具 / 给 AI 的提示",
+      mcp_tools_ol: `<li><code>worksync_join({status?, task?})</code> — 加入房间，作为芯片挂到主人(ownerUid)卡片下</li><li><code>worksync_set({status?, task?, accepting?})</code> — 更新状态 / 任务 / 是否接受提问</li><li><code>worksync_who()</code> — 列出房间里的人和所有 AI（按主人分组）</li><li><code>worksync_timeline({uid?, hours?})</code> — 读某人最近 N 小时的状态历史时间线</li><li><code>worksync_inbox()</code> / <code>worksync_answer({qid, answer})</code> — 看/回答别人向你提的问题</li><li><code>worksync_leave()</code> — 离开房间（删除自己的节点；进程退出也会自动删）</li>`,
+      mcp_tools_note: `给 AI 的提示：进房后请用 <code>worksync_set</code> 把 <code>task</code> 更新成你当前在做的事，让房里的人一眼看到你在忙什么。不填 <code>WS_OWNER_UID</code> 也能跑，但你会显示成一张独立的「仅 AI 在线」卡，而不是挂在某个人下面。`,
+      footer: `数据通过你自己的 Firebase 实时库同步——纯前端、无需你维护服务器，任何网络都能连。<br/>昵称/状态/留言/IP 存在你的 Firebase 项目里；用随机房间名 + 数据库规则保护隐私。<br/>可托管到 GitHub Pages 等静态托管，或直接双击本文件打开。`,
+      conn_unconfigured: "未配置", conn_connected: "已连接", conn_connecting: "连接中…", conn_readfail: "读取失败", conn_initfail: "初始化失败",
+      notify_on: "🔔 通知开", notify_off: "🔕 通知",
+      notify_unsupported: "当前浏览器不支持桌面通知",
+      notify_denied: "通知权限已被浏览器拒绝，请在浏览器站点设置里手动允许。",
+      notify_enabled_title: "WorkSync 通知已开启", notify_enabled_body: "对方状态变化时会提醒你",
+      peer_new: "新成员", peer: "对方", notif_joined: "{0} 加入了", notif_updated_msg: "{0} 更新了留言",
+      anon: "匿名", enc_name: "🔒 加密内容", enc_msg: "（加密口令不符，无法解密）",
+      st_working: "工作中", st_focus: "专注勿扰", st_meeting: "开会中", st_break: "休息", st_lunch: "吃饭", st_away: "离开", st_offline: "下班",
+      self_tag: "（我）", inactive: "不活跃", localtime: "🕐 当地时间", updated_at: "更新于 {0}",
+      ago_unknown: "未知", ago_just: "刚刚", ago_sec: "{0} 秒前", ago_min: "{0} 分钟前", ago_hr: "{0} 小时前", ago_day: "{0} 天前",
+      empty_waiting: "已连接房间，等待对方进入同一房间…", empty_setup: "请先在上方填入 Firebase 配置和房间名并「保存并连接」。",
+      tl_none: "📈 近 24h 暂无状态记录", tl_cap: "📈 近 24h · {0} 次变化 · 现「{1}」起于 {2}",
+      agents_label: "🤖 AI（{0}）", ask_can: "可提问", ask_canleave: "可留言", ask_clickhint: "点击提问",
+      qa_pending: "⏳ 等待 {0} 回应…", ai_only_tag: "（仅 AI 在线）",
+      ask_prompt: "向「{0}」提问\n（它在线则很快回答，离线则留言，等它下次上线再答）：",
+      not_connected: "尚未连接房间", ask_fail: "提问失败：{0}",
+      need_room: "请填房间名（你和对方要一致）", cfg_parse_fail: "Firebase 配置解析失败：{0}",
+      parse_no_obj: "没找到配置对象 {…}", parse_no_dburl: "配置里缺少 databaseURL（请确认已创建 Realtime Database）",
+      copied_ok: "已复制 ✓", copy_manual: "请手动复制", save_first: "请先保存连接", copied_id: "已复制 {0} ✓",
+      clear_confirm: "清除本机保存的 Firebase 配置和房间？",
+      wipe_confirm: "将删除房间「{0}」里所有人的节点（含离线/重复残留）。\n清空后会立刻只保留你自己；让对方刷新即可重新进入。\n\n继续？",
+      wipe_done: "已清空房间，现在只剩你自己 ✓", wipe_fail: "清空失败：{0}",
+      conn_db_fail: "连接数据库失败：{0}\n\n多半是数据库规则不允许读写，请按设置里的步骤把规则设为允许，或用「测试模式」。",
+      init_fail: "Firebase 初始化失败：{0}", setup_connected: "· 已连接房间「{0}」", setup_encrypted: " · 🔒已加密"
+    },
+    en: {
+      title: "WorkSync · cross-timezone status sync (Firebase Realtime DB)",
+      tagline: "Cross-timezone · real-time status sync · Firebase Realtime DB (works on any network)",
+      notify_title: "Enable desktop notifications to be alerted when others' status changes",
+      setup_title: "🔧 Connection settings",
+      step1: "① Paste your Firebase config (the firebaseConfig from the console):",
+      step2_label: "② Room name (both sides use the same; a random string is recommended)",
+      room_ph: "e.g. jody-alex-7x9k",
+      key_label: "🔒 Encryption passphrase (optional, must match)",
+      key_ph: "Empty = no encryption; set = end-to-end encrypted",
+      save_btn: "Save & connect",
+      step3: "③ Send the invite link to others (config included; opening it auto-joins the same room):",
+      share_ph: "Appears after you save & connect…",
+      copy_share: "Copy invite link",
+      copy_myid: "🤖 Copy my ID (for AI)",
+      wipe_room: "🧹 Clear this room",
+      clear_cfg: "Clear local config",
+      guide_summary: "📖 No Firebase config yet? 3-minute setup (free, no credit card)",
+      guide_ol: `<li>Open <code>console.firebase.google.com</code> → sign in with Google → "Add project", any name, turn off Google Analytics.</li><li>Left menu "Build" → "Realtime Database" → "Create Database" → any location → <strong>choose "Start in test mode"</strong> (or paste the rules below under "Rules" later).</li><li>On the project home click the "&lt;/&gt;" (Web) icon to add a web app → after registering it shows a <code>firebaseConfig = {…}</code> → <strong>copy the whole block</strong> into ① above.</li><li>Fill in ② room name → click "Save & connect". Send the ③ invite link to others.</li><li>Recommended database rules (Console → Realtime Database → Rules):<span class="codeblock">{\n  "rules": {\n    "rooms": { "$r": { ".read": true, ".write": true } }\n  }\n}</span>(Privacy relies on the room name only; add auth for stricter control — out of scope here.)</li>`,
+      sec_my: "My status",
+      lbl_nick: "Name",
+      nick_ph: "Your name",
+      lbl_status: "Status",
+      lbl_msg: "Note (optional)",
+      msg_ph: "e.g. free after 12:00 / writing the spec…",
+      sec_everyone: "Everyone",
+      mcp_title: "🤖 Connect via MCP · put your AI here",
+      mcp_intro: `There is an MCP service behind this page. Once an AI / AI agent connects, it appears as a chip under its owner's card (<strong>one person can run multiple AIs</strong>), can broadcast what it is doing, and can read everyone's status and history in the room.<br/>Source lives in the same repo as this page: <code>https://github.com/moocstudent/workStatusSync</code> (folder <code>mcp/</code>).`,
+      mcp_step1: "① Get the server code and install deps (Node 18+):",
+      mcp_step2: '② Click "🤖 Copy my ID (for AI)" above to get your ownerUid.',
+      mcp_step3: "③ Add to your Claude / any MCP client config (replace the path and ID with yours):",
+      mcp_cfg: `{\n  "mcpServers": {\n    "worksync": {\n      "command": "node",\n      "args": ["/absolute/path/workStatusSync/mcp/server.js"],\n      "env": {\n        "WS_DATABASE_URL": "https://your-project-default-rtdb.firebaseio.com",\n        "WS_API_KEY": "your apiKey",\n        "WS_ROOM": "main",\n        "WS_OWNER_UID": "paste your copied ID",\n        "WS_OWNER_NAME": "your name",\n        "WS_AGENT_NAME": "Claude"\n      }\n    }\n  }\n}`,
+      mcp_step4: `④ Have the AI call <code>worksync_join</code> and it shows up under your card. Run several (change <code>WS_AGENT_NAME</code> / <code>WS_AGENT_ID</code>) for "one person, many AIs".`,
+      mcp_tools_summary: "🛠 Tools / tips for the AI",
+      mcp_tools_ol: `<li><code>worksync_join({status?, task?})</code> — join the room, appear as a chip under the owner (ownerUid)</li><li><code>worksync_set({status?, task?, accepting?})</code> — update status / task / whether you accept questions</li><li><code>worksync_who()</code> — list the people and all AIs in the room (grouped by owner)</li><li><code>worksync_timeline({uid?, hours?})</code> — read someone's status history for the last N hours</li><li><code>worksync_inbox()</code> / <code>worksync_answer({qid, answer})</code> — view / answer questions sent to you</li><li><code>worksync_leave()</code> — leave the room (removes your node; also auto-removed on exit)</li>`,
+      mcp_tools_note: `Tip for the AI: after joining, use <code>worksync_set</code> to update <code>task</code> with what you are doing so the room can see it at a glance. It runs without <code>WS_OWNER_UID</code> too, but then you appear as a standalone "AI only" card instead of under a person.`,
+      footer: `Data syncs through your own Firebase Realtime DB — pure front-end, no server to maintain, works on any network.<br/>Name/status/note/IP live in your Firebase project; protect privacy with a random room name + database rules.<br/>Host it on GitHub Pages or just double-click the file to open it.`,
+      conn_unconfigured: "Not configured", conn_connected: "Connected", conn_connecting: "Connecting…", conn_readfail: "Read failed", conn_initfail: "Init failed",
+      notify_on: "🔔 Notifications on", notify_off: "🔕 Notify",
+      notify_unsupported: "This browser does not support desktop notifications",
+      notify_denied: "Notification permission was denied; please allow it in your browser's site settings.",
+      notify_enabled_title: "WorkSync notifications enabled", notify_enabled_body: "You'll be alerted when others' status changes",
+      peer_new: "New member", peer: "Someone", notif_joined: "{0} joined", notif_updated_msg: "{0} updated their note",
+      anon: "Anonymous", enc_name: "🔒 Encrypted", enc_msg: "(passphrase mismatch, can't decrypt)",
+      st_working: "Working", st_focus: "Focus / DND", st_meeting: "In a meeting", st_break: "Break", st_lunch: "Lunch", st_away: "Away", st_offline: "Off",
+      self_tag: "(me)", inactive: "Inactive", localtime: "🕐 Local time", updated_at: "Updated {0}",
+      ago_unknown: "unknown", ago_just: "just now", ago_sec: "{0}s ago", ago_min: "{0}m ago", ago_hr: "{0}h ago", ago_day: "{0}d ago",
+      empty_waiting: "Connected. Waiting for others to join the same room…", empty_setup: 'Fill in your Firebase config and room above, then "Save & connect".',
+      tl_none: "📈 No status records in 24h", tl_cap: '📈 24h · {0} changes · now "{1}" since {2}',
+      agents_label: "🤖 AI ({0})", ask_can: "Ask", ask_canleave: "Leave a message", ask_clickhint: "click to ask",
+      qa_pending: "⏳ Waiting for {0}…", ai_only_tag: "(AI only)",
+      ask_prompt: "Ask \"{0}\"\n(answers quickly if online; otherwise it's a message answered next time it's online):",
+      not_connected: "Not connected to a room yet", ask_fail: "Failed to ask: {0}",
+      need_room: "Please enter a room name (both sides must match)", cfg_parse_fail: "Failed to parse Firebase config: {0}",
+      parse_no_obj: "No config object {…} found", parse_no_dburl: "Config is missing databaseURL (make sure Realtime Database is created)",
+      copied_ok: "Copied ✓", copy_manual: "Please copy manually", save_first: "Save & connect first", copied_id: "Copied {0} ✓",
+      clear_confirm: "Clear the Firebase config and room saved on this device?",
+      wipe_confirm: 'This deletes everyone\'s node in room "{0}" (including offline/duplicate leftovers).\nAfterwards only you remain; others can refresh to rejoin.\n\nContinue?',
+      wipe_done: "Room cleared, only you remain now ✓", wipe_fail: "Clear failed: {0}",
+      conn_db_fail: "Failed to connect to the database: {0}\n\nMost likely the database rules don't allow read/write; set the rules to allow per the setup steps, or use \"test mode\".",
+      init_fail: "Firebase init failed: {0}", setup_connected: '· Connected to room "{0}"', setup_encrypted: " · 🔒 encrypted"
+    },
+    ja: {
+      title: "WorkSync · タイムゾーンを越えた状態同期（Firebase Realtime DB）",
+      tagline: "タイムゾーンを越えたリアルタイム状態同期 · Firebase Realtime DB（どのネットワークでも）",
+      notify_title: "デスクトップ通知をオンにすると、相手の状態変化を知らせます",
+      setup_title: "🔧 接続設定",
+      step1: "① あなたの Firebase 設定（コンソールの firebaseConfig）を貼り付け：",
+      step2_label: "② ルーム名（双方で同じものを。ランダム文字列推奨）",
+      room_ph: "例：jody-alex-7x9k",
+      key_label: "🔒 暗号化パスフレーズ（任意・双方一致）",
+      key_ph: "空＝暗号化なし／入力＝エンドツーエンド暗号化",
+      save_btn: "保存して接続",
+      step3: "③ 招待リンクを相手に送る（設定入り。開けば同じルームに自動接続）：",
+      share_ph: "保存・接続後に表示…",
+      copy_share: "招待リンクをコピー",
+      copy_myid: "🤖 私のIDをコピー（AI用）",
+      wipe_room: "🧹 このルームを空にする",
+      clear_cfg: "ローカル設定を消去",
+      guide_summary: "📖 Firebase 設定がまだ？3分セットアップ（無料・カード不要）",
+      guide_ol: `<li><code>console.firebase.google.com</code> を開く → Google でログイン →「プロジェクトを追加」、名前は任意、Google Analytics はオフでOK。</li><li>左メニュー「Build」→「Realtime Database」→「データベースを作成」→ ロケーションは任意 → <strong>「テストモードで開始」を選択</strong>（または後で「ルール」に下記を貼り付け）。</li><li>プロジェクトのホームで「&lt;/&gt;」（Web）アイコンをクリックしてウェブアプリを追加 → 登録後に <code>firebaseConfig = {…}</code> が表示される → <strong>丸ごとコピー</strong>して上の①へ。</li><li>②ルーム名を入力 →「保存して接続」。③の招待リンクを相手に送る。</li><li>推奨のデータベースルール（コンソール → Realtime Database → ルール）：<span class="codeblock">{\n  "rules": {\n    "rooms": { "$r": { ".read": true, ".write": true } }\n  }\n}</span>（保護はルーム名のみ。より厳格にするには認証を追加。ここでは対象外。）</li>`,
+      sec_my: "自分の状態",
+      lbl_nick: "ニックネーム",
+      nick_ph: "あなたの名前",
+      lbl_status: "状態",
+      lbl_msg: "メモ（任意）",
+      msg_ph: "例：12時以降空き／仕様書を作成中…",
+      sec_everyone: "みんなの状態",
+      mcp_title: "🤖 MCP で接続 · あなたのAIをここに",
+      mcp_intro: `このページの裏には MCP サービスがあります。AI / AI エージェントが接続すると、その持ち主のカードの下に「チップ」として表示され（<strong>1人で複数のAIを持てます</strong>）、今やっていることを発信したり、ルーム内の全員とAIの状態・履歴を読めます。<br/>ソースはこのページと同じリポジトリ：<code>https://github.com/moocstudent/workStatusSync</code>（<code>mcp/</code> フォルダ）。`,
+      mcp_step1: "① サーバーコードを取得して依存をインストール（Node 18+）：",
+      mcp_step2: "② 上の「🤖 私のIDをコピー（AI用）」を押して ownerUid を取得。",
+      mcp_step3: "③ Claude／任意の MCP クライアント設定に追加（パスとIDをあなたのものに）：",
+      mcp_cfg: `{\n  "mcpServers": {\n    "worksync": {\n      "command": "node",\n      "args": ["/絶対パス/workStatusSync/mcp/server.js"],\n      "env": {\n        "WS_DATABASE_URL": "https://あなたのプロジェクト-default-rtdb.firebaseio.com",\n        "WS_API_KEY": "あなたの apiKey",\n        "WS_ROOM": "main",\n        "WS_OWNER_UID": "コピーしたIDを貼り付け",\n        "WS_OWNER_NAME": "あなたの名前",\n        "WS_AGENT_NAME": "Claude"\n      }\n    }\n  }\n}`,
+      mcp_step4: `④ AI に <code>worksync_join</code> を呼ばせれば、あなたのカードの下に出ます。複数起動（<code>WS_AGENT_NAME</code> / <code>WS_AGENT_ID</code> を変える）で「1人＝複数AI」。`,
+      mcp_tools_summary: "🛠 使えるツール／AIへのヒント",
+      mcp_tools_ol: `<li><code>worksync_join({status?, task?})</code> — ルームに参加し、持ち主(ownerUid)のカード下にチップ表示</li><li><code>worksync_set({status?, task?, accepting?})</code> — 状態／タスク／質問受付の更新</li><li><code>worksync_who()</code> — ルーム内の人と全AIを一覧（持ち主ごと）</li><li><code>worksync_timeline({uid?, hours?})</code> — 直近N時間の状態履歴を読む</li><li><code>worksync_inbox()</code> / <code>worksync_answer({qid, answer})</code> — 自分宛の質問を見る／答える</li><li><code>worksync_leave()</code> — ルームを離脱（自分のノード削除。終了時も自動削除）</li>`,
+      mcp_tools_note: `AIへのヒント：参加後は <code>worksync_set</code> で <code>task</code> を今やっていることに更新し、ルームの人がひと目で分かるように。<code>WS_OWNER_UID</code> なしでも動きますが、その場合は誰かの下ではなく独立した「AIのみ」カードとして表示されます。`,
+      footer: `データはあなた自身の Firebase Realtime DB で同期 — フロントエンドのみ、サーバー管理不要、どのネットワークでも。<br/>名前/状態/メモ/IP はあなたの Firebase に保存。ランダムなルーム名＋ルールでプライバシー保護。<br/>GitHub Pages 等でホスト、またはファイルをダブルクリックで開けます。`,
+      conn_unconfigured: "未設定", conn_connected: "接続済み", conn_connecting: "接続中…", conn_readfail: "読み込み失敗", conn_initfail: "初期化失敗",
+      notify_on: "🔔 通知オン", notify_off: "🔕 通知",
+      notify_unsupported: "このブラウザはデスクトップ通知に対応していません",
+      notify_denied: "通知の許可が拒否されています。ブラウザのサイト設定で手動で許可してください。",
+      notify_enabled_title: "WorkSync の通知をオンにしました", notify_enabled_body: "相手の状態が変わるとお知らせします",
+      peer_new: "新メンバー", peer: "相手", notif_joined: "{0} が参加しました", notif_updated_msg: "{0} がメモを更新しました",
+      anon: "匿名", enc_name: "🔒 暗号化", enc_msg: "（パスフレーズ不一致、復号できません）",
+      st_working: "作業中", st_focus: "集中／邪魔しないで", st_meeting: "会議中", st_break: "休憩", st_lunch: "食事", st_away: "離席", st_offline: "退勤",
+      self_tag: "（自分）", inactive: "非アクティブ", localtime: "🕐 現地時間", updated_at: "更新 {0}",
+      ago_unknown: "不明", ago_just: "たった今", ago_sec: "{0}秒前", ago_min: "{0}分前", ago_hr: "{0}時間前", ago_day: "{0}日前",
+      empty_waiting: "接続済み。同じルームに他の人が入るのを待っています…", empty_setup: "上で Firebase 設定とルーム名を入力し「保存して接続」してください。",
+      tl_none: "📈 直近24hの状態記録なし", tl_cap: "📈 直近24h · {0}回変化 · 現在「{1}」（{2}から）",
+      agents_label: "🤖 AI（{0}）", ask_can: "質問可", ask_canleave: "伝言可", ask_clickhint: "クリックで質問",
+      qa_pending: "⏳ {0} の返信待ち…", ai_only_tag: "（AIのみ）",
+      ask_prompt: "「{0}」に質問\n（オンラインならすぐ回答、オフラインなら伝言として次回オンライン時に回答）：",
+      not_connected: "まだルームに接続していません", ask_fail: "質問の送信に失敗：{0}",
+      need_room: "ルーム名を入力してください（双方一致）", cfg_parse_fail: "Firebase 設定の解析に失敗：{0}",
+      parse_no_obj: "設定オブジェクト {…} が見つかりません", parse_no_dburl: "設定に databaseURL がありません（Realtime Database を作成済みか確認）",
+      copied_ok: "コピー済み ✓", copy_manual: "手動でコピーしてください", save_first: "先に保存・接続してください", copied_id: "コピー {0} ✓",
+      clear_confirm: "この端末に保存した Firebase 設定とルームを消去しますか？",
+      wipe_confirm: "ルーム「{0}」の全員のノード（オフライン/重複残りを含む）を削除します。\n実行後はあなただけ残ります。相手は再読み込みで再参加できます。\n\n続けますか？",
+      wipe_done: "ルームを空にしました。今はあなただけです ✓", wipe_fail: "クリアに失敗：{0}",
+      conn_db_fail: "データベース接続に失敗：{0}\n\n多くの場合ルールが読み書きを許可していません。設定手順に従って許可するか「テストモード」を使ってください。",
+      init_fail: "Firebase 初期化に失敗：{0}", setup_connected: "· ルーム「{0}」に接続", setup_encrypted: " · 🔒 暗号化"
+    }
+  };
+  function detectLang() {
+    var saved; try { saved = window.localStorage.getItem("ws_lang"); } catch (e) {}
+    if (saved && I18N[saved]) return saved;
+    var n = (navigator.language || navigator.userLanguage || "en").toLowerCase();
+    if (n.indexOf("zh") === 0) return "zh";
+    if (n.indexOf("ja") === 0) return "ja";
+    return "en";
+  }
+  var LANG = detectLang();
+  function t(k) { var d = I18N[LANG] || I18N.en; var v = d[k]; if (v == null) v = I18N.en[k]; return v == null ? k : v; }
+  function tf(k) { var s = t(k); for (var i = 1; i < arguments.length; i++) s = s.split("{" + (i - 1) + "}").join(arguments[i]); return s; }
+  function stLabel(key) { return t("st_" + key); }
+  function applyStaticI18n() {
+    document.documentElement.lang = (LANG === "zh" ? "zh-CN" : LANG);
+    document.title = t("title");
+    var q, i;
+    q = document.querySelectorAll("[data-i18n]"); for (i = 0; i < q.length; i++) q[i].textContent = t(q[i].getAttribute("data-i18n"));
+    q = document.querySelectorAll("[data-i18n-html]"); for (i = 0; i < q.length; i++) q[i].innerHTML = t(q[i].getAttribute("data-i18n-html"));
+    q = document.querySelectorAll("[data-i18n-ph]"); for (i = 0; i < q.length; i++) q[i].setAttribute("placeholder", t(q[i].getAttribute("data-i18n-ph")));
+    q = document.querySelectorAll("[data-i18n-title]"); for (i = 0; i < q.length; i++) q[i].setAttribute("title", t(q[i].getAttribute("data-i18n-title")));
+  }
+  function setLang(l) {
+    if (!I18N[l]) return;
+    LANG = l; try { window.localStorage.setItem("ws_lang", l); } catch (e) {}
+    applyStaticI18n(); renderPills(); updateNotifyBtn(); render();
+    var sel = document.getElementById("langSel"); if (sel) sel.value = l;
+    var ct = document.getElementById("connText"); if (ct) ct.textContent = t(_connKey);
+    var ss = document.getElementById("setupState"); if (ss && _setupRoom) ss.textContent = tf("setup_connected", _setupRoom) + (_setupEnc ? t("setup_encrypted") : "");
+  }
+  var _setupRoom = "", _setupEnc = false, _connKey = "conn_unconfigured";
+
+  // 不再内置任何 Firebase 配置（避免把可写库的凭证公开到仓库）。
+  // 用户须自带配置（粘贴 firebaseConfig）或用别人发来的邀请链接（#cfg=...）自动配好。
+  var BUILTIN_CONFIG = null;
+  var DEFAULT_ROOM = "";
+
+  var STATUSES = [
+    { key: "working", label: "工作中", ic: "💼", color: "#34d399" },
+    { key: "focus",   label: "专注勿扰", ic: "🎯", color: "#5b8cff" },
+    { key: "meeting", label: "开会中", ic: "📞", color: "#a78bfa" },
+    { key: "break",   label: "休息", ic: "☕", color: "#fbbf24" },
+    { key: "lunch",   label: "吃饭", ic: "🍜", color: "#fb923c" },
+    { key: "away",    label: "离开", ic: "🚶", color: "#9ca3af" },
+    { key: "offline", label: "下班", ic: "🌙", color: "#6b7280" }
+  ];
+  function statusOf(key) {
+    for (var i = 0; i < STATUSES.length; i++) if (STATUSES[i].key === key) return STATUSES[i];
+    return STATUSES[STATUSES.length - 1];
+  }
+  var HEARTBEAT_MS = 20000, STALE_MS = 70000;
+  var HIST_WINDOW_MS = 24 * 3600 * 1000;   // 状态时间线窗口：滚动 24 小时
+
+  var LS = window.localStorage;
+  // 身份 ID 用 localStorage：同一浏览器始终是同一个身份，
+  // 重开/刷新都复用同一 Firebase 节点（set 覆盖），避免攒出多个"自己"。
+  function getId() {
+    var id = LS.getItem("ws_uid");
+    if (!id) { id = "u_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); LS.setItem("ws_uid", id); }
+    return id;
+  }
+  var MY_ID = getId();
+  var MY_TZ = (Intl.DateTimeFormat().resolvedOptions().timeZone) || "UTC";
+
+  var me = {
+    id: MY_ID,
+    name: LS.getItem("ws_name") || "",
+    status: LS.getItem("ws_status") || "working",
+    message: LS.getItem("ws_msg") || "",
+    tz: MY_TZ, ip: "", loc: "",
+    updatedAt: Date.now()
+  };
+  var others = {};
+  var db = null, usersRef = null, myRef = null, connected = false;
+  var histRef = null, histMineRef = null;  // Firebase: rooms/{room}/hist 与 .../hist/{myId}
+  var histById = {};                        // 他人时间线：uid -> [{status,message,ts}]（ts 升序）
+  var agentsRef = null;                     // Firebase: rooms/{room}/agents
+  var agentsByOwner = {};                   // 一对多：ownerUid -> [{id,name,status,task,accepting,updatedAt,ownerName}]
+  var qaRef = null;                          // Firebase: rooms/{room}/qa（持久信箱，不随 onDisconnect 删）
+  var qaByAgent = {};                        // (ownerUid+"|"+agentId) -> [{qid,fromUid,fromName,question,qts,answer,ats}]
+
+  var $ = function (id) { return document.getElementById(id); };
+  var nameInput = $("nameInput"), msgInput = $("msgInput"), pillsEl = $("statusPills");
+  var peopleEl = $("people"), connEl = $("conn"), connText = $("connText"), notifyBtn = $("notifyBtn");
+  var cfgIn = $("cfgIn"), roomIn = $("roomIn"), keyIn = $("keyIn");
+
+  nameInput.value = me.name; msgInput.value = me.message;
+
+  // ---------- 通知 ----------
+  var notifyOn = LS.getItem("ws_notify") === "1";
+  var notifyReady = false; setTimeout(function () { notifyReady = true; }, 3500);
+  var lastSeen = {};
+  function notifySupported() { return ("Notification" in window); }
+  function updateNotifyBtn() {
+    var granted = notifySupported() && Notification.permission === "granted";
+    var on = notifyOn && granted;
+    notifyBtn.classList.toggle("on", on);
+    notifyBtn.textContent = on ? t("notify_on") : t("notify_off");
+  }
+  notifyBtn.onclick = function () {
+    if (!notifySupported()) { alert(t("notify_unsupported")); return; }
+    if (Notification.permission === "granted") {
+      notifyOn = !notifyOn; LS.setItem("ws_notify", notifyOn ? "1" : "0"); updateNotifyBtn();
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(function (p) {
+        notifyOn = (p === "granted"); LS.setItem("ws_notify", notifyOn ? "1" : "0"); updateNotifyBtn();
+        if (notifyOn) fireNotify(t("notify_enabled_title"), t("notify_enabled_body"));
+      });
+    } else { alert(t("notify_denied")); }
+  };
+  function fireNotify(title, body) { try { new Notification(title, { body: body || "", tag: "worksync", renotify: true }); } catch (e) {} }
+  function maybeNotify(d) {
+    var prev = lastSeen[d.id];
+    lastSeen[d.id] = { status: d.status, message: d.message, name: d.name };
+    if (!notifyOn || !(notifySupported() && Notification.permission === "granted") || !notifyReady) return;
+    if (!prev) { fireNotify(tf("notif_joined", d.name || t("peer_new")), stLabel(d.status)); return; }
+    if (prev.status !== d.status) fireNotify((d.name || t("peer")) + " · " + stLabel(d.status), d.message || "");
+    else if (prev.message !== d.message && d.message) fireNotify(tf("notif_updated_msg", d.name || t("peer")), d.message);
+  }
+
+  // ---------- IP ----------
+  var IP_PROVIDERS = [
+    { url: "https://ipapi.co/json/",           parse: function (j) { return { ip: j.ip, loc: [j.city, j.region, j.country_name].filter(Boolean).join(", ") }; } },
+    { url: "https://ipinfo.io/json",           parse: function (j) { return { ip: j.ip, loc: [j.city, j.region, j.country].filter(Boolean).join(", ") }; } },
+    { url: "https://api.ipify.org?format=json", parse: function (j) { return { ip: j.ip, loc: "" }; } }
+  ];
+  function fetchIp() {
+    var i = 0;
+    function tryNext() {
+      if (i >= IP_PROVIDERS.length) return;
+      var p = IP_PROVIDERS[i++];
+      return fetch(p.url).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+        .then(function (j) { var d = p.parse(j); if (!d.ip) throw 0; me.ip = d.ip; me.loc = d.loc || ""; })
+        .catch(function () { return tryNext(); });
+    }
+    return tryNext();
+  }
+
+  // ---------- 状态 pills ----------
+  function renderPills() {
+    pillsEl.innerHTML = "";
+    STATUSES.forEach(function (s) {
+      var b = document.createElement("button");
+      b.className = "pill" + (s.key === me.status ? " active" : "");
+      b.dataset.key = s.key;
+      b.innerHTML = '<span>' + s.ic + '</span>' + stLabel(s.key);
+      b.onclick = function () {
+        me.status = s.key; LS.setItem("ws_status", s.key);
+        Array.prototype.forEach.call(pillsEl.children, function (c) { c.classList.toggle("active", c.dataset.key === s.key); });
+        recordChange(me.status, me.message);   // 记入本地时间线（离线也记），在线则补传
+        publish(); render();
+      };
+      pillsEl.appendChild(b);
+    });
+  }
+  var pubTimer = null;
+  function debouncedPublish() { clearTimeout(pubTimer); pubTimer = setTimeout(publish, 300); }
+  nameInput.oninput = function () { me.name = nameInput.value.trim(); LS.setItem("ws_name", me.name); debouncedPublish(); };
+  msgInput.oninput = function () { me.message = msgInput.value; LS.setItem("ws_msg", me.message); debouncedPublish(); };
+
+  // ---------- 内容端到端加密（AES-GCM；口令经 PBKDF2 派生，口令永不入库）----------
+  var SECRET = "";            // 加密口令（来自本机/链接），为空则不加密
+  var _keyP = null, _keyFor = null;
+  function cryptoOk() { return (window.crypto && crypto.subtle); }
+  function getKey() {
+    if (_keyP && _keyFor === SECRET) return _keyP;
+    _keyFor = SECRET;
+    var enc = new TextEncoder();
+    _keyP = crypto.subtle.importKey("raw", enc.encode(SECRET), "PBKDF2", false, ["deriveKey"])
+      .then(function (bk) {
+        return crypto.subtle.deriveKey(
+          { name: "PBKDF2", salt: enc.encode("worksync-v1"), iterations: 100000, hash: "SHA-256" },
+          bk, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+      });
+    return _keyP;
+  }
+  function b64FromBytes(b) { var s = ""; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
+  function bytesFromB64(s) { var bin = atob(s), a = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
+  function encryptObj(obj) {
+    return getKey().then(function (key) {
+      var iv = crypto.getRandomValues(new Uint8Array(12));
+      return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, new TextEncoder().encode(JSON.stringify(obj)))
+        .then(function (ct) { return b64FromBytes(iv) + "." + b64FromBytes(new Uint8Array(ct)); });
+    });
+  }
+  function decryptStr(s) {
+    if (!s || s.indexOf(".") < 0) return Promise.resolve(null);
+    var p = s.split("."), iv = bytesFromB64(p[0]), ct = bytesFromB64(p[1]);
+    return getKey().then(function (key) { return crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, ct); })
+      .then(function (buf) { return JSON.parse(new TextDecoder().decode(buf)); })
+      .catch(function () { return null; });
+  }
+
+  // ---------- Firebase ----------
+  function parseConfig(text) {
+    text = (text || "").trim();
+    var s = text.indexOf("{"), e = text.lastIndexOf("}");
+    if (s < 0 || e < 0) throw new Error(t("parse_no_obj"));
+    var body = text.slice(s, e + 1);
+    var obj = Function('"use strict";return (' + body + ");")();
+    if (!obj || !obj.databaseURL) throw new Error(t("parse_no_dburl"));
+    return obj;
+  }
+  function setConn(state, key) {
+    connected = (state === "online");
+    connEl.classList.toggle("online", connected);
+    _connKey = key || (connected ? "conn_connected" : "conn_connecting");
+    connText.textContent = t(_connKey);
+  }
+  function publish() {
+    if (!myRef) return;
+    me.updatedAt = Date.now();
+    var base = { id: me.id, status: me.status, tz: me.tz, updatedAt: me.updatedAt };
+    var content = { name: me.name || t("anon"), message: me.message || "", ip: me.ip || "", loc: me.loc || "" };
+    if (SECRET && cryptoOk()) {
+      encryptObj(content)
+        .then(function (enc) { base.enc = enc; myRef.set(base); })
+        .catch(function () {           // 加密异常时退回明文，避免丢更新
+          base.name = content.name; base.message = content.message; base.ip = content.ip; base.loc = content.loc; myRef.set(base);
+        });
+    } else {
+      base.name = content.name; base.message = content.message; base.ip = content.ip; base.loc = content.loc;
+      myRef.set(base);
+    }
+  }
+  function connectFirebase(config, room) {
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    db = firebase.database();
+    usersRef = db.ref("rooms/" + room + "/users");
+    myRef = usersRef.child(MY_ID);
+    histRef = db.ref("rooms/" + room + "/hist");
+    histMineRef = histRef.child(MY_ID);
+    listenHistory();
+    agentsRef = db.ref("rooms/" + room + "/agents");
+    listenAgents();
+    qaRef = db.ref("rooms/" + room + "/qa");
+    listenQa();
+
+    db.ref(".info/connected").on("value", function (snap) {
+      if (snap.val() === true) {
+        setConn("online", "conn_connected");
+        myRef.onDisconnect().remove();       // 断开/关页面时删除自己的 presence 节点（hist 不删，保留时间线）
+        publish();
+        flushHist();                          // 补传离线期间累积的本地记录
+        recordChange(me.status, me.message);  // 标记本次上线时刻的状态
+        pruneRemote();                        // 清理超 24h 的旧记录
+      } else { setConn("offline", "conn_connecting"); }
+    });
+
+    usersRef.on("value", function (snap) {
+      var val = snap.val() || {};
+      var ids = Object.keys(val).filter(function (id) { return id !== MY_ID; });
+      Promise.all(ids.map(function (id) {
+        var d = val[id];
+        var make = function (c) { return { id: d.id, status: d.status || "offline", tz: d.tz || "UTC", updatedAt: d.updatedAt || 0, name: c.name || t("anon"), message: c.message || "", ip: c.ip || "", loc: c.loc || "" }; };
+        if (d.enc) {
+          return decryptStr(d.enc).then(function (b) {
+            return b ? make(b) : make({ name: t("enc_name"), message: t("enc_msg"), ip: "", loc: "" });
+          });
+        }
+        return Promise.resolve(make({ name: d.name, message: d.message, ip: d.ip, loc: d.loc }));
+      })).then(function (arr) {
+        others = {};
+        arr.forEach(function (o) { others[o.id] = o; maybeNotify(o); });
+        render();
+      });
+    }, function (err) {
+      setConn("offline", "conn_readfail");
+      alert(tf("conn_db_fail", (err && err.message || err)));
+    });
+
+    setInterval(function () { if (connected) publish(); }, HEARTBEAT_MS);
+    setInterval(function () { if (connected) pruneRemote(); }, 3600000);   // 每小时清理超窗口的旧时间线记录
+    window.addEventListener("beforeunload", function () { try { myRef.remove(); } catch (e) {} });
+  }
+
+  // ---------- 状态历史时间线（离线优先：本地 localStorage 立即记录，回连补传 Firebase）----------
+  function loadHist() {
+    var arr;
+    try { arr = JSON.parse(LS.getItem("ws_hist") || "[]"); } catch (e) { arr = []; }
+    if (!Array.isArray(arr)) arr = [];
+    var cut = Date.now() - HIST_WINDOW_MS;
+    return arr.filter(function (e) { return e && typeof e.ts === "number" && e.ts >= cut; });
+  }
+  function saveHist(arr) { try { LS.setItem("ws_hist", JSON.stringify(arr)); } catch (e) {} }
+
+  // 记录一次状态变更：先写本地（断网也成功），再尝试上行 Firebase
+  function recordChange(status, message) {
+    var arr = loadHist();
+    var last = arr.length ? arr[arr.length - 1] : null;
+    // 去抖：同状态且 60s 内不重复记（避免刷新/重连/心跳灌水），仅刷新留言
+    if (last && last.status === status && (Date.now() - last.ts) < 60000) {
+      last.message = message || ""; last.synced = false;
+      saveHist(arr); if (connected) uploadHist(last);
+      return;
+    }
+    var entry = { lid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                  status: status, message: message || "", ts: Date.now(), synced: false };
+    arr.push(entry); saveHist(arr);
+    if (connected) uploadHist(entry);
+  }
+
+  // 把一条本地记录上行（用 lid 当子键 → 幂等，重传不会产生重复）
+  function uploadHist(entry) {
+    if (!histMineRef) return;
+    function markSynced() {
+      var arr = loadHist();
+      for (var i = 0; i < arr.length; i++) if (arr[i].lid === entry.lid) arr[i].synced = true;
+      saveHist(arr);
+    }
+    var node = { status: entry.status, ts: entry.ts };
+    if (SECRET && cryptoOk()) {
+      encryptObj({ message: entry.message || "" })
+        .then(function (enc) { node.enc = enc; return histMineRef.child(entry.lid).set(node); })
+        .then(markSynced)
+        .catch(function () { node.message = entry.message || ""; histMineRef.child(entry.lid).set(node).then(markSynced).catch(function () {}); });
+    } else {
+      node.message = entry.message || "";
+      histMineRef.child(entry.lid).set(node).then(markSynced).catch(function () {});
+    }
+  }
+
+  // 回连时把所有未同步的本地记录补传
+  function flushHist() { loadHist().forEach(function (e) { if (!e.synced) uploadHist(e); }); }
+
+  // 清理自己 Firebase 上超 24h 的旧记录（时间线节点不随断开删除，仅按时效清）
+  function pruneRemote() {
+    if (!histMineRef) return;
+    var cut = Date.now() - HIST_WINDOW_MS;
+    histMineRef.once("value", function (snap) {
+      var v = snap.val() || {};
+      Object.keys(v).forEach(function (k) { if (!v[k] || v[k].ts < cut) histMineRef.child(k).remove(); });
+    });
+  }
+
+  // 监听所有人的时间线
+  function listenHistory() {
+    if (!histRef) return;
+    histRef.on("value", function (snap) {
+      var val = snap.val() || {}, cut = Date.now() - HIST_WINDOW_MS;
+      var uids = Object.keys(val).filter(function (u) { return u !== MY_ID; });
+      Promise.all(uids.map(function (u) {
+        var node = val[u] || {};
+        return Promise.all(Object.keys(node).map(function (k) {
+          var d = node[k];
+          if (!d || d.ts < cut) return Promise.resolve(null);
+          if (d.enc) return decryptStr(d.enc).then(function (b) { return { status: d.status, ts: d.ts, message: (b && b.message) || "" }; });
+          return Promise.resolve({ status: d.status, ts: d.ts, message: d.message || "" });
+        })).then(function (list) {
+          return { uid: u, list: list.filter(Boolean).sort(function (a, b) { return a.ts - b.ts; }) };
+        });
+      })).then(function (results) {
+        histById = {};
+        results.forEach(function (r) { histById[r.uid] = r.list; });
+        render();
+      });
+    });
+  }
+
+  // 取某人的时间线（自己用本地权威数据，含离线未传部分）
+  function timelineOf(id, isSelf) {
+    if (isSelf) return loadHist().sort(function (a, b) { return a.ts - b.ts; });
+    return histById[id] || [];
+  }
+  function clockHM(ts) {
+    try { return new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(ts)); }
+    catch (e) { return ""; }
+  }
+  // 渲染 24h 状态色块条
+  function buildTimelineBar(id, isSelf) {
+    var list = timelineOf(id, isSelf);
+    var now = Date.now(), t0 = now - HIST_WINDOW_MS, span = now - t0;
+    var inWin = [], carry = null;
+    for (var i = 0; i < list.length; i++) { if (list[i].ts < t0) carry = list[i]; else inWin.push(list[i]); }
+    if (!inWin.length && !carry) return '<div class="tl-cap">' + t("tl_none") + '</div>';
+    var pts = [];
+    if (carry) pts.push({ ts: t0, status: carry.status });
+    for (var j = 0; j < inWin.length; j++) {
+      if (pts.length && pts[pts.length - 1].ts === inWin[j].ts) pts[pts.length - 1].status = inWin[j].status;
+      else pts.push({ ts: inWin[j].ts, status: inWin[j].status });
+    }
+    var segs = "";
+    for (var k = 0; k < pts.length; k++) {
+      var startTs = pts[k].ts, endTs = (k + 1 < pts.length) ? pts[k + 1].ts : now;
+      var w = (endTs - startTs) / span * 100;
+      if (w <= 0) continue;
+      var st = statusOf(pts[k].status);
+      var tip = stLabel(pts[k].status) + "  " + clockHM(startTs) + "–" + clockHM(endTs);
+      segs += '<div class="tl-seg" style="width:' + w.toFixed(3) + '%;background:' + st.color + '" title="' + escapeHtml(tip) + '"></div>';
+    }
+    var lastP = pts[pts.length - 1];
+    return '<div class="tl-bar">' + segs + '</div>' +
+           '<div class="tl-cap">' + escapeHtml(tf("tl_cap", inWin.length, stLabel(lastP.status), clockHM(lastP.ts))) + '</div>';
+  }
+
+  // ---------- AI agent 芯片（一对多：一个 ownerUid 挂多个 agent，挂在主人卡片下）----------
+  var AGENT_STALE_MS = 60000;   // 超过 1 分钟没心跳视为离线（变灰）
+  function listenAgents() {
+    if (!agentsRef) return;
+    agentsRef.on("value", function (snap) {
+      var val = snap.val() || {};
+      agentsByOwner = {};
+      Object.keys(val).forEach(function (ownerUid) {
+        var mine = val[ownerUid] || {};
+        var list = Object.keys(mine).map(function (aid) {
+          var a = mine[aid] || {};
+          return { id: aid, name: a.name || "AI", status: a.status || "idle", task: a.task || "",
+                   accepting: !!a.accepting, updatedAt: a.updatedAt || 0, ownerName: a.ownerName || "AI" };
+        }).sort(function (x, y) { return (y.updatedAt || 0) - (x.updatedAt || 0); });
+        if (list.length) agentsByOwner[ownerUid] = list;
+      });
+      render();
+    });
+  }
+  // 信箱（持久）：rooms/{room}/qa/{ownerUid}/{agentId}/{qid} = {fromUid,fromName,question,qts,answer?,ats?}
+  function listenQa() {
+    if (!qaRef) return;
+    qaRef.on("value", function (snap) {
+      var val = snap.val() || {};
+      qaByAgent = {};
+      Object.keys(val).forEach(function (owner) {
+        var agents = val[owner] || {};
+        Object.keys(agents).forEach(function (aid) {
+          var entries = agents[aid] || {};
+          var arr = Object.keys(entries).map(function (qid) {
+            var e = entries[qid] || {};
+            return { qid: qid, fromUid: e.fromUid, fromName: e.fromName || "匿名", question: e.question || "",
+                     qts: e.qts || 0, answer: e.answer || "", ats: e.ats || 0 };
+          }).sort(function (x, y) { return x.qts - y.qts; });
+          if (arr.length) qaByAgent[owner + "|" + aid] = arr;
+        });
+      });
+      render();
+    });
+  }
+  function buildQaThread(ownerUid, a) {
+    var arr = qaByAgent[ownerUid + "|" + a.id];
+    if (!arr || !arr.length) return "";
+    var rows = arr.slice(-6).map(function (e) {
+      var q = '<div class="qa-q"><span class="qa-from">❓ ' + escapeHtml(e.fromName) + '：</span>' + escapeHtml(e.question) + '</div>';
+      var ans = e.answer
+        ? '<div class="qa-a">💬 ' + escapeHtml(a.name) + '：' + escapeHtml(e.answer) + '</div>'
+        : '<div class="qa-pending">' + escapeHtml(tf("qa_pending", a.name)) + '</div>';
+      return '<div class="qa-item">' + q + ans + '</div>';
+    }).join("");
+    return '<div class="qa">' + rows + '</div>';
+  }
+  function buildAgentChips(ownerUid) {
+    var list = agentsByOwner[ownerUid];
+    if (!list || !list.length) return "";
+    var blocks = list.map(function (a) {
+      var st = statusOf(a.status);
+      var stale = (Date.now() - (a.updatedAt || 0)) > AGENT_STALE_MS;
+      var tip = (a.name + " · " + stLabel(a.status) + (a.task ? " · " + a.task : ""));
+      var askable = !!a.accepting;
+      var askCue = askable ? '<span class="ac-ask">· 💬 ' + (stale ? t("ask_canleave") : t("ask_can")) + '</span>' : '';
+      var chip = '<span class="agent-chip' + (stale ? ' stale' : '') + (askable ? ' askable' : '') + '"' +
+        (askable ? ' data-ask-owner="' + escapeHtml(ownerUid) + '" data-ask-agent="' + escapeHtml(a.id) + '" data-ask-name="' + escapeHtml(a.name) + '"' : '') +
+        ' title="' + escapeHtml(tip + (askable ? " · " + t("ask_clickhint") : "")) + '">' +
+        '<span class="ac-dot" style="background:' + st.color + '"></span>' +
+        '<span class="ac-name">🤖 ' + escapeHtml(a.name) + '</span>' +
+        (a.task ? '<span class="ac-task">' + escapeHtml(a.task) + '</span>' : '') +
+        askCue +
+      '</span>';
+      return '<div class="agent-block">' + chip + buildQaThread(ownerUid, a) + '</div>';
+    }).join("");
+    return '<div class="agents-label">' + tf("agents_label", list.length) + '</div><div class="agents">' + blocks + '</div>';
+  }
+  // 向某个 AI 提问：写进持久信箱（在线则它秒答，离线则留言排队等它回来答）
+  function askAgent(ownerUid, agentId, agentName) {
+    if (!qaRef) { alert(t("not_connected")); return; }
+    var q = window.prompt(tf("ask_prompt", agentName), "");
+    if (!q || !q.trim()) return;
+    var qid = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    qaRef.child(ownerUid).child(agentId).child(qid).set({
+      fromUid: MY_ID, fromName: (me.name || t("anon")), question: q.trim(), qts: Date.now()
+    }).catch(function (e) { alert(tf("ask_fail", (e && e.message || e))); });
+  }
+
+  // ---------- 渲染 ----------
+  function initials(name) { var t = (name || "").trim(); return t ? t.slice(0, 1).toUpperCase() : "?"; }
+  function colorFor(id) { var h = 0; for (var i = 0; i < (id||"").length; i++) h = (h * 31 + id.charCodeAt(i)) % 360; return "hsl(" + h + ",55%,45%)"; }
+  function fmtTime(tz) {
+    try { return new Intl.DateTimeFormat("zh-CN", { timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date()); }
+    catch (e) { return "--:--:--"; }
+  }
+  function tzOffsetLabel(tz) {
+    try {
+      var p = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(new Date());
+      for (var i = 0; i < p.length; i++) if (p[i].type === "timeZoneName") return p[i].value;
+    } catch (e) {}
+    return "";
+  }
+  function shortTz(tz) { var p = (tz || "").split("/"); return p[p.length - 1].replace(/_/g, " "); }
+  function ago(ts) {
+    if (!ts) return t("ago_unknown");
+    var s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 5) return t("ago_just"); if (s < 60) return tf("ago_sec", s);
+    var mn = Math.floor(s / 60); if (mn < 60) return tf("ago_min", mn);
+    var h = Math.floor(mn / 60); if (h < 24) return tf("ago_hr", h);
+    return tf("ago_day", Math.floor(h / 24));
+  }
+  function escapeHtml(s) {
+    return (s || "").replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+  }
+  function personCard(d, isSelf) {
+    var st = statusOf(d.status);
+    var stale = (Date.now() - (d.updatedAt || 0)) > STALE_MS && d.status !== "offline";
+    var effLabel = stale ? t("inactive") : stLabel(d.status), effColor = stale ? "var(--gray)" : st.color;
+    var div = document.createElement("div");
+    div.className = "person" + (isSelf ? " self" : "");
+    div.innerHTML =
+      '<div class="avatar" style="background:' + colorFor(d.id) + '">' + initials(d.name) + '</div>' +
+      '<div class="pinfo">' +
+        '<div class="pname">' + escapeHtml(d.name || t("anon")) +
+          (isSelf ? ' <span style="font-size:11px;color:var(--muted)">' + t("self_tag") + '</span>' : '') +
+          '<span class="badge" style="background:' + effColor + '22;color:' + effColor + '">' +
+            '<span class="d" style="background:' + effColor + '"></span>' + st.ic + ' ' + effLabel + '</span>' +
+        '</div>' +
+        '<div class="pmsg">' + escapeHtml(d.message) + '</div>' +
+        '<div class="pmeta">' +
+          t("localtime") + ' <span class="clock" data-tz="' + d.tz + '">' + fmtTime(d.tz) + '</span> ' +
+            '<span style="color:var(--muted)">(' + tzOffsetLabel(d.tz) + ' · ' + shortTz(d.tz) + ')</span><br/>' +
+          (d.ip ? '🌍 IP ' + escapeHtml(d.ip) + (d.loc ? ' <span style="color:var(--muted)">· ' + escapeHtml(d.loc) + '</span>' : '') + '<br/>' : '') +
+          '<span class="' + (stale ? 'stale' : '') + '">' + escapeHtml(tf("updated_at", ago(d.updatedAt))) + '</span>' +
+        '</div>' +
+        '<div class="tl-wrap">' + buildTimelineBar(d.id, isSelf) + '</div>' +
+        buildAgentChips(d.id) +
+      '</div>';
+    return div;
+  }
+  // 主人不在线、但其 AI 还挂着的虚拟卡（仅 AI 在线）
+  function aiOnlyCard(ownerUid) {
+    var list = agentsByOwner[ownerUid] || [];
+    var ownerName = (list[0] && list[0].ownerName) || "AI";
+    var div = document.createElement("div");
+    div.className = "person ai-only";
+    div.innerHTML =
+      '<div class="avatar" style="background:' + colorFor(ownerUid) + '">' + initials(ownerName) + '</div>' +
+      '<div class="pinfo">' +
+        '<div class="pname">' + escapeHtml(ownerName) +
+          ' <span style="font-size:11px;color:var(--muted)">' + t("ai_only_tag") + '</span></div>' +
+        buildAgentChips(ownerUid) +
+      '</div>';
+    return div;
+  }
+  function render() {
+    peopleEl.innerHTML = "";
+    peopleEl.appendChild(personCard(me, true));
+    var ids = Object.keys(others).sort(function (a, b) { return (others[b].updatedAt || 0) - (others[a].updatedAt || 0); });
+    if (ids.length === 0) {
+      var e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = myRef ? t("empty_waiting") : t("empty_setup");
+      peopleEl.appendChild(e);
+    } else {
+      ids.forEach(function (id) { peopleEl.appendChild(personCard(others[id], false)); });
+    }
+    // 主人页面没开、但 AI 还挂着的：补一张"仅 AI 在线"卡
+    Object.keys(agentsByOwner).forEach(function (ownerUid) {
+      if (ownerUid === MY_ID || others[ownerUid]) return;
+      peopleEl.appendChild(aiOnlyCard(ownerUid));
+    });
+  }
+  setInterval(function () {
+    var clocks = peopleEl.querySelectorAll(".clock");
+    Array.prototype.forEach.call(clocks, function (c) { c.textContent = fmtTime(c.dataset.tz); });
+  }, 1000);
+  setInterval(render, 5000);
+  // 点击「可提问/可留言」的 AI 芯片 → 提问（事件委托，避免重渲染丢状态）
+  peopleEl.addEventListener("click", function (e) {
+    var chip = e.target.closest ? e.target.closest(".agent-chip.askable") : null;
+    if (!chip) return;
+    askAgent(chip.getAttribute("data-ask-owner"), chip.getAttribute("data-ask-agent"), chip.getAttribute("data-ask-name"));
+  });
+
+  // ---------- 配置 UI ----------
+  function flash(el, msg) { el.textContent = msg; el.className = "ok-flash"; setTimeout(function () { el.textContent = ""; }, 2000); }
+  function b64uEnc(str) { return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+  function b64uDec(s) { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return decodeURIComponent(escape(atob(s))); }
+  function buildShareLink(config, room, key) {
+    var u = location.origin + location.pathname + "#cfg=" + b64uEnc(JSON.stringify(config)) + "&room=" + encodeURIComponent(room);
+    if (key) u += "&k=" + b64uEnc(key);   // 口令放在 hash 里，仅客户端、不会发往服务器
+    return u;
+  }
+  $("saveBtn").onclick = function () {
+    var room = roomIn.value.trim();
+    if (!room) { alert(t("need_room")); return; }
+    var config;
+    try { config = parseConfig(cfgIn.value); }
+    catch (err) { alert(tf("cfg_parse_fail", err.message)); return; }
+    LS.setItem("ws_fb_cfg", JSON.stringify(config));
+    LS.setItem("ws_fb_room", room);
+    LS.setItem("ws_fb_key", keyIn.value);   // 口令仅存本机，绝不写入数据库
+    location.href = location.origin + location.pathname;   // 干净重载，进入已配置状态
+    location.reload();
+  };
+  $("copyShare").onclick = function () {
+    var v = $("shareLink").value;
+    if (!v) { flash($("copyShareOk"), t("save_first")); return; }
+    if (navigator.clipboard) navigator.clipboard.writeText(v).then(function(){ flash($("copyShareOk"), t("copied_ok")); }).catch(function(){ flash($("copyShareOk"), t("copy_manual")); });
+    else flash($("copyShareOk"), t("copy_manual"));
+  };
+  $("copyMyId").onclick = function () {
+    var v = MY_ID;
+    if (navigator.clipboard) navigator.clipboard.writeText(v).then(function(){ flash($("copyMyIdOk"), tf("copied_id", v)); }).catch(function(){ flash($("copyMyIdOk"), v); });
+    else flash($("copyMyIdOk"), v);
+  };
+  $("clearBtn").onclick = function () {
+    if (!confirm(t("clear_confirm"))) return;
+    LS.removeItem("ws_fb_cfg"); LS.removeItem("ws_fb_room");
+    location.href = location.origin + location.pathname; location.reload();
+  };
+  $("wipeRoomBtn").onclick = function () {
+    if (!usersRef) { alert(t("not_connected")); return; }
+    if (!confirm(tf("wipe_confirm", roomIn.value.trim() || "?"))) return;
+    usersRef.remove()
+      .then(function () { publish(); render(); alert(t("wipe_done")); })
+      .catch(function (e) { alert(tf("wipe_fail", (e && e.message || e))); });
+  };
+
+  // 解析链接里的配置：#cfg=...&room=...&k=...
+  function readHash() {
+    var h = location.hash || "";
+    if (h.indexOf("cfg=") < 0) return null;
+    try {
+      var cfgM = h.match(/cfg=([^&]+)/), roomM = h.match(/room=([^&]+)/), kM = h.match(/k=([^&]+)/);
+      if (!cfgM) return null;
+      var config = JSON.parse(b64uDec(cfgM[1]));
+      var room = roomM ? decodeURIComponent(roomM[1]) : "";
+      var key = kM ? b64uDec(kM[1]) : "";
+      return { config: config, room: room, key: key };
+    } catch (e) { return null; }
+  }
+
+  // ---------- 启动 ----------
+  applyStaticI18n();
+  renderPills();
+  (function () {
+    var sel = $("langSel");
+    if (sel) { sel.value = LANG; sel.onchange = function () { setLang(sel.value); }; }
+  })();
+  connText.textContent = t("conn_unconfigured");
+  updateNotifyBtn();
+
+  var fromHash = readHash();
+  if (fromHash) {
+    LS.setItem("ws_fb_cfg", JSON.stringify(fromHash.config));
+    if (fromHash.room) LS.setItem("ws_fb_room", fromHash.room);
+    LS.setItem("ws_fb_key", fromHash.key || "");
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+
+  var savedCfg = LS.getItem("ws_fb_cfg"), savedRoom = LS.getItem("ws_fb_room") || "";
+  var savedKey = LS.getItem("ws_fb_key") || "";
+  SECRET = savedKey;
+  keyIn.value = savedKey;
+  var cfgObj = null;
+  if (savedCfg) { try { cfgObj = JSON.parse(savedCfg); } catch (e) {} }
+  if (!cfgObj) cfgObj = BUILTIN_CONFIG;                 // 现在没有内置配置 → 仍为 null
+  var room = savedRoom || DEFAULT_ROOM;
+  cfgIn.value = cfgObj ? JSON.stringify(cfgObj, null, 2) : "";
+  roomIn.value = room;
+  if (cfgObj && room) {
+    try {
+      connectFirebase(cfgObj, room);
+      $("shareLink").value = buildShareLink(cfgObj, room, savedKey);
+      _setupRoom = room; _setupEnc = !!savedKey;
+      $("setupState").textContent = tf("setup_connected", room) + (savedKey ? t("setup_encrypted") : "");
+    } catch (err) {
+      setConn("offline", "conn_initfail");
+      alert(tf("init_fail", (err && err.message || err)));
+    }
+  }
+
+  render();
+  fetchIp().then(function () { publish(); render(); });
+})();
+</script>
+</body>
+</html>
