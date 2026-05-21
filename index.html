@@ -821,6 +821,10 @@ npm install --registry=https://registry.npmmirror.com</span>
       else pts.push({ ts: inWin[j].ts, status: inWin[j].status });
     }
     var segs = "";
+    // 前导空白：第一条记录之前（t0→首条）这段没有记录，用透明占位把后面的彩色段按时间推到右侧，
+    // 使「当前状态」段正好顶到右边缘=现在（否则彩色全挤在左边，看着像刚开始/早停了）。
+    var lead = (pts[0].ts - t0) / span * 100;
+    if (lead > 0.05) segs += '<div class="tl-seg" style="width:' + lead.toFixed(3) + '%;background:transparent"></div>';
     for (var k = 0; k < pts.length; k++) {
       var startTs = pts[k].ts, endTs = (k + 1 < pts.length) ? pts[k + 1].ts : now;
       var w = (endTs - startTs) / span * 100;
