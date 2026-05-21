@@ -828,17 +828,15 @@ npm install --registry=https://registry.npmmirror.com</span>
     var inWin = list.filter(function (e) { return e && typeof e.ts === "number" && e.ts >= cut; })
                     .sort(function (a, b) { return a.ts - b.ts; });
     if (!inWin.length) return '<div class="tl-cap">' + t("tl_none") + '</div>';
-    // 真实时间轴：横轴 = 最近 24h（左=24h前，右=现在）。没记录/没上线的时段填灰色，
-    // 有状态的时段上色，当前状态一直延伸到右边缘=现在。整条永远填满（灰+彩）。
-    var t0 = now - HIST_WINDOW_MS, span = HIST_WINDOW_MS;
+    // 时间轴(24h刻度)，彩色靠左：从「最早一条记录」开始铺彩色段(各段宽=时长/24h)，
+    // 剩余时段(到满 24h)用灰色补在右边。即「彩(左) + 灰(右)」，整条永远填满。
+    var span = HIST_WINDOW_MS;
     var pts = [];
     for (var j = 0; j < inWin.length; j++) {
       if (pts.length && pts[pts.length - 1].status === inWin[j].status) continue;   // 合并相邻同状态
       pts.push({ ts: inWin[j].ts, status: inWin[j].status });
     }
-    var segs = "";
-    var leadW = (pts[0].ts - t0) / span * 100;   // 第一条记录之前 = 没上线/没记录 → 灰
-    if (leadW > 0.05) segs += '<div class="tl-seg" style="width:' + leadW.toFixed(3) + '%;background:#333a47" title="' + escapeHtml(t("tl_norec")) + '"></div>';
+    var segs = "", used = 0;
     for (var k = 0; k < pts.length; k++) {
       var startTs = pts[k].ts, endTs = (k + 1 < pts.length) ? pts[k + 1].ts : now;
       var w = (endTs - startTs) / span * 100;
@@ -846,7 +844,10 @@ npm install --registry=https://registry.npmmirror.com</span>
       var st = statusOf(pts[k].status);
       var tip = stLabel(pts[k].status) + "  " + clockHM(startTs) + "–" + clockHM(endTs);
       segs += '<div class="tl-seg" style="width:' + w.toFixed(3) + '%;background:' + st.color + '" title="' + escapeHtml(tip) + '"></div>';
+      used += w;
     }
+    var tail = 100 - used;   // 剩余时段(到满 24h) = 没记录/没上线 → 灰，放在右边
+    if (tail > 0.05) segs += '<div class="tl-seg" style="width:' + tail.toFixed(3) + '%;background:#333a47" title="' + escapeHtml(t("tl_norec")) + '"></div>';
     var lastP = pts[pts.length - 1];
     return '<div class="tl-bar">' + segs + '</div>' +
            '<div class="tl-cap">' + escapeHtml(tf("tl_cap", pts.length, stLabel(lastP.status), clockHM(lastP.ts))) + '</div>';
