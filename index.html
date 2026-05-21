@@ -710,6 +710,7 @@ npm install --registry=https://registry.npmmirror.com</span>
     });
 
     setInterval(function () { if (connected) publish(); }, HEARTBEAT_MS);
+    setInterval(function () { if (connected) flushHist(); }, 30000);       // 周期性补传未同步的本地记录（防本地领先于云端 → 别人看不到）
     setInterval(function () { if (connected) pruneRemote(); }, 3600000);   // 每小时清理超窗口的旧时间线记录
     window.addEventListener("beforeunload", function () { try { myRef.remove(); } catch (e) {} });
   }
@@ -731,13 +732,13 @@ npm install --registry=https://registry.npmmirror.com</span>
     // 去抖：同状态且 60s 内不重复记（避免刷新/重连/心跳灌水），仅刷新留言
     if (last && last.status === status && (Date.now() - last.ts) < 60000) {
       last.message = message || ""; last.synced = false;
-      saveHist(arr); if (connected) uploadHist(last);
+      saveHist(arr); if (connected) flushHist();   // 顺带补传所有未同步记录
       return;
     }
     var entry = { lid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
                   status: status, message: message || "", ts: Date.now(), synced: false };
     arr.push(entry); saveHist(arr);
-    if (connected) uploadHist(entry);
+    if (connected) flushHist();   // 顺带补传所有未同步记录
   }
 
   // 把一条本地记录上行（用 lid 当子键 → 幂等，重传不会产生重复）
